@@ -1,11 +1,19 @@
-name: Deploy PerfusionLab MVP Web Console
+name: Deploy PerfusionLab MVP
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/new-mvp-pages-indicators"]
     paths:
       - "index.html"
-      - "frontend/**"
+      - "assets/**"
+      - "tests/**"
+      - "README.md"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "assets/**"
+      - "tests/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -15,11 +23,24 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test homepage simulator indicators
+        run: node --test tests/simulator.test.js
+
   deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: test
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -28,10 +49,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload site artifact
+      - name: Upload new MVP site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "frontend"
+          path: "."
           name: github-pages-${{ github.run_attempt }}
           retention-days: 1
       - name: Deploy to GitHub Pages
