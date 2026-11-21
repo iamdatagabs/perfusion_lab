@@ -8,13 +8,13 @@ TMP_DIR="$(mktemp -d)"
 JOB_ID=""
 
 cleanup() {
-  "${COMPOSE[@]}" up -d rabbitmq worker worker-memory worker-compute >/dev/null 2>&1 || true
+  "${COMPOSE[@]}" up -d rabbitmq worker >/dev/null 2>&1 || true
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
 echo "[1/5] Starting the local PerfusionLab stack"
-"${COMPOSE[@]}" up -d --build
+"${COMPOSE[@]}" up -d --build postgres rabbitmq jaeger api worker
 for attempt in $(seq 1 60); do
   if curl -fsS "$API_URL/api/v1/health" >/dev/null; then break; fi
   sleep 2
@@ -52,7 +52,7 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 [[ "$STATUS" == "healthy" ]] || { echo "RabbitMQ did not become healthy" >&2; exit 1; }
-"${COMPOSE[@]}" up -d worker worker-memory worker-compute
+"${COMPOSE[@]}" up -d worker
 
 echo "[5/5] Waiting for the queued job to complete after broker recovery"
 for attempt in $(seq 1 90); do
@@ -66,7 +66,7 @@ for attempt in $(seq 1 90); do
   if [[ "$STATE" == "FAILED" ]]; then
     echo "Job failed after broker recovery:" >&2
     echo "$BODY" >&2
-    "${COMPOSE[@]}" logs --no-color --tail=150 api worker worker-memory worker-compute >&2 || true
+    "${COMPOSE[@]}" logs --no-color --tail=150 api worker >&2 || true
     exit 1
   fi
   sleep 2
