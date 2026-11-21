@@ -1,9 +1,9 @@
 package com.perfusionlab.simulation.jobs;
 
-import java.util.concurrent.TimeUnit;
+import com.perfusionlab.simulation.observability.TraceContextSupport;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.concurrent.TimeUnit;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,11 +16,14 @@ public class OutboxPublisher {
     private final OutboxEventStore outbox;
     private final RabbitTemplate rabbit;
     private final MeterRegistry meters;
+    private final TraceContextSupport traceContext;
 
-    public OutboxPublisher(OutboxEventStore outbox, RabbitTemplate rabbit, MeterRegistry meters) {
+    public OutboxPublisher(OutboxEventStore outbox, RabbitTemplate rabbit,
+                           MeterRegistry meters, TraceContextSupport traceContext) {
         this.outbox = outbox;
         this.rabbit = rabbit;
         this.meters = meters;
+        this.traceContext = traceContext;
     }
 
     @Scheduled(fixedDelayString = "${perfusion.outbox.poll-ms:500}")
@@ -30,31 +33,39 @@ public class OutboxPublisher {
             if (candidate.isEmpty()) return;
             var event = candidate.get();
             try {
-                CorrelationData correlation = new CorrelationData(event.eventId().toString());
-                rabbit.convertAndSend(
-                        SimulationJobService.EXCHANGE,
-                        routingKey(event.message()),
-                        event.message(),
-                        message -> {
-                            message.getMessageProperties().setHeader("X-Correlation-ID", event.message().correlationId());
-                            if (event.message().traceparent() != null) {
-                                message.getMessageProperties().setHeader("traceparent", event.message().traceparent());
-                            }
-                            return message;
-                        },
-                        correlation);
-                CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
-                if (!confirm.isAck()) {
-                    throw new IllegalStateException("RabbitMQ rejected publication: " + confirm.getReason());
-                }
-                if (correlation.getReturned() != null) {
-                    throw new IllegalStateException("RabbitMQ returned an unroutable message");
-                }
+                traceContext.inSpan(event.message(), "perfusionlab.outbox.publish", () -> {
+                    SimulationJobMessage outbound = traceContext.capture(
+                            event.message(), event.message().correlationId());
+                    CorrelationData correlation = new CorrelationData(event.eventId().toString());
+                    rabbit.convertAndSend(
+                            SimulationJobService.EXCHANGE,
+                            routingKey(outbound),
+                            outbound,
+                            message -> {
+                                message.getMessageProperties().setHeader(
+                                        "X-Correlation-ID", outbound.correlationId());
+                                if (outbound.traceparent() != null) {
+                                    message.getMessageProperties().setHeader(
+                                            "traceparent", outbound.traceparent());
+                                }
+                                return message;
+                            },
+                            correlation);
+                    CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
+                    if (!confirm.isAck()) {
+                        throw new IllegalStateException("RabbitMQ rejected publication: " + confirm.getReason());
+                    }
+                    if (correlation.getReturned() != null) {
+                        throw new IllegalStateException("RabbitMQ returned an unroutable message");
+                    }
+                    return null;
+                });
                 outbox.markPublished(event.eventId());
                 meters.counter("perfusionlab.outbox.events", "outcome", "published").increment();
             } catch (Exception exception) {
                 outbox.markRetry(event.eventId(), event.attempts(), exception.getClass().getSimpleName());
-                meters.counter("perfusionlab.outbox.events", "outcome", event.attempts() + 1 >= 8 ? "dead" : "retry").increment();
+                meters.counter("perfusionlab.outbox.events", "outcome",
+                        event.attempts() + 1 >= 8 ? "dead" : "retry").increment();
             }
         }
     }

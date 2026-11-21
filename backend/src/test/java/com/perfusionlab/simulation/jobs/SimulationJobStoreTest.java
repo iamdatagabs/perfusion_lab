@@ -24,7 +24,8 @@ class SimulationJobStoreTest {
         assertEquals(SimulationJobStatus.State.QUEUED, queued.state());
         assertNotNull(queued.submittedAt());
         verify(jdbc).update(contains("INSERT INTO simulation_jobs"), eq(id),
-                any(java.sql.Timestamp.class), anyString(), isNull(), eq("GENERAL"), isNull(), isNull());
+                any(java.sql.Timestamp.class), anyString(), isNull(), eq("GENERAL"), isNull(), isNull(),
+                eq(id.toString()), isNull());
     }
 
     @Test

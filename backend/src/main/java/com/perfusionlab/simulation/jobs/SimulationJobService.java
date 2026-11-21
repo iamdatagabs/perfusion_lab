@@ -35,10 +35,12 @@ public class SimulationJobService {
     public SimulationJobStatus submit(SimulationPreviewRequest input, ExecutionProfile profile) {
         UUID id = UUID.randomUUID();
         WorkerNodeAssignment assignment = nodes.reserveNode(profile).orElse(null);
-        SimulationJobStatus job = store.create(id, input, null, profile, assignment);
-        outbox.enqueue(id, traceContext.capture(new SimulationJobMessage(id, input, profile,
+        SimulationJobMessage message = traceContext.capture(new SimulationJobMessage(id, input, profile,
                 assignment == null ? null : assignment.nodeId(),
-                assignment == null ? null : assignment.incarnationId()), MDC.get("correlationId")));
+                assignment == null ? null : assignment.incarnationId()), MDC.get("correlationId"));
+        SimulationJobStatus job = store.create(id, input, null, profile, assignment,
+                message.correlationId(), message.traceparent());
+        outbox.enqueue(id, message);
         return job;
     }
 }

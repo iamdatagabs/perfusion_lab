@@ -22,7 +22,7 @@ public class SimulationJobRecovery {
         // through the profile pool. A fresh worker incarnation can then claim it.
         jdbc.update("""
                 WITH expired AS (
-                    SELECT job_id, input_json, attempt_count, execution_profile
+                    SELECT job_id, input_json, attempt_count, execution_profile, correlation_id, traceparent
                     FROM simulation_jobs
                     WHERE state = 'RUNNING' AND lease_expires_at < now()
                     FOR UPDATE SKIP LOCKED
@@ -43,7 +43,7 @@ public class SimulationJobRecovery {
                         attempt_count = j.attempt_count + 1
                     FROM expired e
                     WHERE j.job_id = e.job_id AND e.attempt_count < 3
-                    RETURNING j.job_id, j.input_json, j.execution_profile
+                    RETURNING j.job_id, j.input_json, j.execution_profile, j.correlation_id, j.traceparent
                 ), orphaned AS (
                     UPDATE simulation_jobs j
                     SET target_node_id = NULL, target_incarnation_id = NULL
@@ -60,18 +60,19 @@ public class SimulationJobRecovery {
                           )
                         FOR UPDATE SKIP LOCKED
                     )
-                    RETURNING j.job_id, j.input_json, j.execution_profile
+                    RETURNING j.job_id, j.input_json, j.execution_profile, j.correlation_id, j.traceparent
                 ), retry_payloads AS (
-                    SELECT job_id, input_json, execution_profile FROM retryable
+                    SELECT job_id, input_json, execution_profile, correlation_id, traceparent FROM retryable
                     UNION ALL
-                    SELECT job_id, input_json, execution_profile FROM orphaned
+                    SELECT job_id, input_json, execution_profile, correlation_id, traceparent FROM orphaned
                 )
                 INSERT INTO outbox_events
                     (event_id, aggregate_id, event_type, payload, status, created_at, next_attempt_at)
                 SELECT gen_random_uuid(), job_id, 'SimulationJobRequested',
                        jsonb_build_object('jobId', job_id, 'input', input_json,
                            'executionProfile', execution_profile,
-                           'targetNodeId', NULL, 'targetIncarnationId', NULL),
+                           'targetNodeId', NULL, 'targetIncarnationId', NULL,
+                           'correlationId', correlation_id, 'traceparent', traceparent),
                        'PENDING', now(), now()
                 FROM retry_payloads
                 """);
