@@ -21,6 +21,7 @@ class OutboxPublisherChaosTest {
         RabbitTemplate rabbit = mock(RabbitTemplate.class);
         SimpleMeterRegistry meters = new SimpleMeterRegistry();
         TraceContextSupport traceContext = mock(TraceContextSupport.class);
+        when(traceContext.capture(any(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
         when(traceContext.inSpan(any(), anyString(), any(Supplier.class)))
                 .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(2)).get());
         UUID eventId = UUID.randomUUID();
