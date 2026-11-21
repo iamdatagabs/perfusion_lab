@@ -47,8 +47,8 @@ public class SimulationJobStore {
         jdbc.update("""
                 INSERT INTO simulation_jobs
                     (job_id, state, submitted_at, input_json, batch_id, execution_profile,
-                     target_node_id, target_incarnation_id)
-                VALUES (?, 'QUEUED', ?, ?::jsonb, ?, ?, ?, ?)
+                     target_node_id, target_incarnation_id, correlation_id, traceparent)
+                VALUES (?, 'QUEUED', ?, ?::jsonb, ?, ?, ?, ?, ?, ?)
                 """, id, Timestamp.from(submittedAt), toJson(input), batchId, profile.name(),
                 assignment == null ? null : assignment.nodeId(),
                 assignment == null ? null : assignment.incarnationId(), correlationId, traceparent);
