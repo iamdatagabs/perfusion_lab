@@ -19,7 +19,13 @@ for attempt in $(seq 1 60); do
   if curl -fsS "$API_URL/api/v1/health" >/dev/null; then break; fi
   sleep 2
 done
-curl -fsS "$API_URL/api/v1/health" >/dev/null || { echo "API did not become healthy" >&2; exit 1; }
+if ! curl -fsS "$API_URL/api/v1/health" >/dev/null 2>&1; then
+  echo "API did not become healthy; container diagnostics follow" >&2
+  "${COMPOSE[@]}" ps >&2 || true
+  "${COMPOSE[@]}" logs --no-color --tail=200 api postgres rabbitmq >&2 || true
+  docker inspect perfusionlab-api --format 'API state={{.State.Status}} exit={{.State.ExitCode}} error={{.State.Error}}' >&2 || true
+  exit 1
+fi
 
 echo "[2/5] Stopping RabbitMQ to create a broker outage"
 "${COMPOSE[@]}" stop rabbitmq
