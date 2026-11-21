@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.perfusionlab.simulation.api.SimulationPreviewRequest;
-import java.sql.Timestamp;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,18 +24,31 @@ class SimulationJobStoreTest {
         assertEquals(SimulationJobStatus.State.QUEUED, queued.state());
         assertNotNull(queued.submittedAt());
         verify(jdbc).update(contains("INSERT INTO simulation_jobs"), eq(id),
-                any(Timestamp.class), anyString());
+                any(java.sql.Timestamp.class), anyString());
     }
 
     @Test
     void onlyOneWorkerCanClaimAQueuedJob() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(contains("UPDATE simulation_jobs"), any(Timestamp.class), any(UUID.class)))
+        when(jdbc.update(contains("UPDATE simulation_jobs"), anyString(), anyLong(), any(UUID.class)))
                 .thenReturn(1, 0);
         SimulationJobStore store = new SimulationJobStore(jdbc, new ObjectMapper());
         UUID id = UUID.randomUUID();
 
-        assertTrue(store.markRunning(id));
-        assertFalse(store.markRunning(id));
+        assertTrue(store.markRunning(id, "worker-a", java.time.Duration.ofMinutes(2)));
+        assertFalse(store.markRunning(id, "worker-b", java.time.Duration.ofMinutes(2)));
+    }
+
+    @Test
+    void completionIsFencedByWorkerIdentity() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        SimulationJobStore store = new SimulationJobStore(jdbc, new ObjectMapper());
+        UUID id = UUID.randomUUID();
+        var result = new com.perfusionlab.simulation.api.SimulationPreviewResponse(72.0, 630.34, 331.76);
+
+        store.markSucceeded(id, "worker-current", result);
+
+        verify(jdbc).update(contains("AND worker_id = ?"), any(java.sql.Timestamp.class),
+                anyString(), eq(id), eq("worker-current"));
     }
 }
