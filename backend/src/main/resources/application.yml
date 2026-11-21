@@ -22,6 +22,7 @@ spring:
       simple:
         concurrency: ${WORKER_SLOTS:1}
         max-concurrency: ${WORKER_SLOTS:1}
+        default-requeue-rejected: false
 
 perfusion:
   admin:

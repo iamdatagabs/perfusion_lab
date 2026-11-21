@@ -145,6 +145,10 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - GET /api/v1/experiments/batches/{batchId} — inspect progress, throughput, optional speedup and efficiency.
 - GET /api/v1/cluster/nodes — inspect active worker nodes, declared capacity and runtime telemetry.
 - GET /api/v1/cluster/capacity — inspect aggregated capacity and observed pressure by execution profile.
+- GET /actuator/metrics/perfusionlab.worker.messages — inspect worker outcomes by profile.
+- GET /actuator/metrics/perfusionlab.worker.execution — inspect worker execution latency.
+- GET /actuator/metrics/perfusionlab.outbox.events — inspect outbox publication, retry and dead-letter outcomes.
+- GET /actuator/metrics/perfusionlab.rabbitmq.dead_letter.messages — inspect the RabbitMQ dead-letter queue depth.
 - POST /api/v1/cluster/nodes/{nodeId}/drain — authenticated graceful drain; reassigns queued jobs and lets running jobs finish.
 
 ## Reliability semantics and limitations
@@ -154,7 +158,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
 - Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
 - The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
-- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. Node drain reassigns queued jobs to profile queues and allows already-running work to finish; the response exposes running and remaining queued assignment counts. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
+- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. Node drain reassigns queued jobs to profile queues and allows already-running work to finish; the response exposes running and remaining queued assignment counts. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. Worker profile queues and node queues dead-letter rejected deliveries to the durable `perfusionlab.simulation.dead` queue. The listener does not automatically requeue rejected/poison messages; the explicit `ImmediateRequeueAmqpException` path remains reserved for temporary shared-queue handoff during node drain. Inspect the queue in the RabbitMQ management UI and manually redrive only after correcting the cause, publishing the original message to the matching `simulation.execute.{profile}` routing key on `perfusionlab.simulation`. The outbox also has its own terminal `DEAD` state after eight publication attempts; this is separate from RabbitMQ's consumer dead-letter queue. Metrics are exposed through Spring Boot Actuator. Distributed trace context propagation and alert delivery remain future work.
 - Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 

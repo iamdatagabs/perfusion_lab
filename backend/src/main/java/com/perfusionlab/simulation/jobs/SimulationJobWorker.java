@@ -13,6 +13,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import com.perfusionlab.simulation.observability.TraceContextSupport;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
@@ -35,6 +36,7 @@ public class SimulationJobWorker {
     private final RabbitAdmin rabbitAdmin;
     private final RabbitListenerEndpointRegistry listenerRegistry;
     private final MeterRegistry meters;
+    private final TraceContextSupport traceContext;
     private final String workerId;
     private final String nodeId;
     private final UUID incarnationId = UUID.randomUUID();
@@ -45,7 +47,7 @@ public class SimulationJobWorker {
 
     public SimulationJobWorker(SimplifiedPerfusionModel model, SimulationJobStore store,
             WorkerNodeStore nodes, WorkerTelemetryCollector telemetryCollector,
-            RabbitAdmin rabbitAdmin, RabbitListenerEndpointRegistry listenerRegistry, MeterRegistry meters,
+            RabbitAdmin rabbitAdmin, RabbitListenerEndpointRegistry listenerRegistry, MeterRegistry meters, TraceContextSupport traceContext,
             @Value("${perfusion.worker.profile:GENERAL}") String profile,
             @Value("${perfusion.worker.node-id:}") String configuredNodeId,
             @Value("${perfusion.worker.cpu-cores:1}") int cpuCores,
@@ -53,7 +55,7 @@ public class SimulationJobWorker {
             @Value("${perfusion.worker.slots:1}") int slots) {
         this.model = model; this.store = store; this.nodes = nodes;
         this.telemetryCollector = telemetryCollector; this.rabbitAdmin = rabbitAdmin;
-        this.listenerRegistry = listenerRegistry; this.meters = meters;
+        this.listenerRegistry = listenerRegistry; this.meters = meters; this.traceContext = traceContext;
         this.profile = ExecutionProfile.valueOf(profile.toUpperCase());
         this.cpuCores = Math.max(1, cpuCores);
         this.memoryMb = Math.max(256, memoryMb);
@@ -93,6 +95,13 @@ public class SimulationJobWorker {
 
     @RabbitListener(id = "workerListener", queues = {"#{@workerQueueName}", "#{@simulationJobWorker.nodeQueueName}"})
     public void execute(SimulationJobMessage message) {
+        traceContext.inWorkerSpan(message, () -> {
+            executeInContext(message);
+            return null;
+        });
+    }
+
+    void executeInContext(SimulationJobMessage message) {
         meters.counter("perfusionlab.worker.messages", "profile", profile.name(), "outcome", "received").increment();
         Timer.Sample sample = Timer.start(meters);
         if (message.executionProfile() != profile) {

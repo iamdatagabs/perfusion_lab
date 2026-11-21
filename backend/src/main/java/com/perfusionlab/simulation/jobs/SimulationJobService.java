@@ -1,6 +1,8 @@
 package com.perfusionlab.simulation.jobs;
 
 import com.perfusionlab.simulation.api.SimulationPreviewRequest;
+import com.perfusionlab.simulation.observability.TraceContextSupport;
+import org.slf4j.MDC;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -14,11 +16,14 @@ public class SimulationJobService {
     private final SimulationJobStore store;
     private final OutboxEventStore outbox;
     private final WorkerNodeStore nodes;
+    private final TraceContextSupport traceContext;
 
-    public SimulationJobService(SimulationJobStore store, OutboxEventStore outbox, WorkerNodeStore nodes) {
+    public SimulationJobService(SimulationJobStore store, OutboxEventStore outbox, WorkerNodeStore nodes,
+                                TraceContextSupport traceContext) {
         this.store = store;
         this.outbox = outbox;
         this.nodes = nodes;
+        this.traceContext = traceContext;
     }
 
     @Transactional
@@ -31,9 +36,9 @@ public class SimulationJobService {
         UUID id = UUID.randomUUID();
         WorkerNodeAssignment assignment = nodes.reserveNode(profile).orElse(null);
         SimulationJobStatus job = store.create(id, input, null, profile, assignment);
-        outbox.enqueue(id, new SimulationJobMessage(id, input, profile,
+        outbox.enqueue(id, traceContext.capture(new SimulationJobMessage(id, input, profile,
                 assignment == null ? null : assignment.nodeId(),
-                assignment == null ? null : assignment.incarnationId()));
+                assignment == null ? null : assignment.incarnationId()), MDC.get("correlationId")));
         return job;
     }
 }
