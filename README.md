@@ -68,6 +68,11 @@ curl http://localhost:8080/api/v1/cluster/capacity
 
 Configured CPU/RAM/slots are declarations. `systemCpuLoad` is a best-effort system-level measurement; heap values describe the JVM, not total host/container memory. A heartbeat older than two minutes is excluded from scheduling.
 
+
+### Worker identity (Stage 7 foundation)
+
+Each worker process now reports a logical `nodeId` and a fresh UUID `incarnationId`. Its runtime `workerId` combines both, so a restarted process cannot reuse the previous process's lease-owner identity. Set `WORKER_NODE_ID` explicitly when an identity must survive container replacement; otherwise hostname plus execution profile is used as a convenience fallback. Only fresh `READY` workers contribute to active-node and capacity views. This increment establishes identity and registry lifecycle metadata; messages are still routed by execution-profile queues, not individual node queues.
+
 ### Scale the worker pool
 
 ~~~bash
