@@ -24,6 +24,8 @@ spring:
         max-concurrency: ${WORKER_SLOTS:1}
 
 perfusion:
+  admin:
+    token: ${PERFUSION_ADMIN_TOKEN:}
   role: ${PERFUSION_ROLE:api}
   outbox:
     poll-ms: ${OUTBOX_POLL_MS:500}
