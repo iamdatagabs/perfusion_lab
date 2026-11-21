@@ -22,17 +22,20 @@ PerfusionLab is an academic software engineering project exploring computational
 - Three independently routed worker profiles: GENERAL, MEMORY and COMPUTE.
 - Worker registry reporting declared CPU/RAM/slots, active jobs, available slots and best-effort JVM/system telemetry.
 - Automatic batch profile selection (`AUTO`) using live free slots and observed CPU/heap pressure, with an auditable scheduling reason.
-- HTTP benchmark script for comparing worker pool sizes and batch execution.
+- Stable logical worker identity plus a unique process incarnation UUID.
+- Durable per-node RabbitMQ queues and node-specific routing keys, provisioned before the worker advertises itself as READY.
+- Optional target node and process-incarnation fields in the message contract; the outbox publisher uses the node route when a target is present.
 
 ## Architecture
 
 - **DDD:** bounded contexts for Simulation, Perfusion, Physiology, Experiment and Reporting.
 - **Hybrid deployment:** API/control plane and worker runtime are separate containers, sharing the same Java artifact and database.
-- **EDA:** RabbitMQ direct exchange, durable queue and JSON message contract.
+- **EDA:** RabbitMQ direct exchange, durable profile queues and durable node-scoped queues.
 - **Transactional outbox:** PostgreSQL atomically stores the job and its event; a publisher relays events to RabbitMQ.
 - **At-least-once delivery:** a crash after broker confirmation but before marking the outbox row published can cause duplicate delivery. Atomic worker claims and ownership fencing make repeated messages safe.
-- **Horizontal workers:** replicas compete on one queue; stale leases are recovered by the API role.
-- **Grid orchestration:** profile-specific queues route workloads to separate worker pools; a PostgreSQL node registry exposes declared capacity and live slot usage. This is a first cluster-control layer, not yet a dynamic cross-host scheduler.
+- **Horizontal workers:** replicas compete on profile queues for untargeted messages. A targeted message is routed to the durable queue owned by one logical node.
+- **Node identity:** a stable configured `WORKER_NODE_ID` identifies the logical node; a fresh `incarnationId` fences messages addressed to a prior process instance.
+- **Grid orchestration:** profile-level AUTO scheduling remains available. Node queue provisioning and target-aware routing are infrastructure primitives; the scheduler does not yet reserve node slots or automatically select a concrete node.
 
 ### Job lifecycle
 
@@ -59,6 +62,8 @@ docker compose -f infra/docker-compose.yml up --build -d
 docker compose -f infra/docker-compose.yml up -d --scale worker=4
 ~~~
 
+Each worker provisions a durable queue named `perfusionlab.simulation.node.<WORKER_NODE_ID>` and binds it to `simulation.execute.node.<WORKER_NODE_ID>`. Set a unique `WORKER_NODE_ID` per logical worker node; only use the hostname/profile fallback for single-process or ephemeral local runs. The worker continues listening to its profile queue for backward compatibility while also consuming its node-specific queue.
+
 Inspect active nodes, runtime telemetry and aggregated capacity by profile:
 
 ~~~bash
@@ -68,16 +73,11 @@ curl http://localhost:8080/api/v1/cluster/capacity
 
 Configured CPU/RAM/slots are declarations. `systemCpuLoad` is a best-effort system-level measurement; heap values describe the JVM, not total host/container memory. A heartbeat older than two minutes is excluded from scheduling.
 
+### Worker identity and node queue readiness
 
-### Worker identity (Stage 7 foundation)
+Each worker process reports a logical `nodeId` and a fresh UUID `incarnationId`. Its runtime `workerId` combines both, so a restarted process cannot reuse the previous process's lease-owner identity. The worker declares its durable node queue and binding before its first READY heartbeat. Set `WORKER_NODE_ID` explicitly when identity must survive container replacement. Node IDs are restricted to letters, digits, underscore and hyphen, with a maximum length of 80 characters.
 
-Each worker process now reports a logical `nodeId` and a fresh UUID `incarnationId`. Its runtime `workerId` combines both, so a restarted process cannot reuse the previous process's lease-owner identity. Set `WORKER_NODE_ID` explicitly when an identity must survive container replacement; otherwise hostname plus execution profile is used as a convenience fallback. Only fresh `READY` workers contribute to active-node and capacity views. This increment establishes identity and registry lifecycle metadata; messages are still routed by execution-profile queues, not individual node queues.
-
-### Scale the worker pool
-
-~~~bash
-docker compose -f infra/docker-compose.yml up --build -d --scale worker=4
-~~~
+The message contract accepts optional `targetNodeId` and `targetIncarnationId`. When `targetNodeId` is set, the outbox publisher uses the node-specific routing key; otherwise it preserves the existing profile routing behavior. A worker rejects messages explicitly addressed to another node or stale process incarnation. Automatic per-node selection and atomic slot reservation are the next scheduler increment and are not claimed as implemented here.
 
 ### Benchmark
 
@@ -139,7 +139,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
 - Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
 - The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
-- AUTO selects a profile queue from current node capacity; RabbitMQ still distributes among consumers of that queue. This is not direct node pinning or a cross-host agent scheduler. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
+- AUTO currently selects a profile queue; it does not yet choose a specific node or reserve a node slot. Node-specific queues and target-aware message routing are now available as primitives for that next step. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
 - Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 
