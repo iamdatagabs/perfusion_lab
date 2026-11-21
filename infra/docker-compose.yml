@@ -46,8 +46,8 @@ services:
 
   api:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: perfusionlab-api
     environment:
       PERFUSION_ROLE: api
@@ -73,8 +73,8 @@ services:
 
   worker:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     environment:
       PERFUSION_ROLE: worker
       OTEL_SERVICE_NAME: perfusionlab-worker-general
@@ -100,8 +100,8 @@ services:
 
   worker-memory:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     environment:
       PERFUSION_ROLE: worker
       OTEL_SERVICE_NAME: perfusionlab-worker-memory
@@ -127,8 +127,8 @@ services:
 
   worker-compute:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     environment:
       PERFUSION_ROLE: worker
       OTEL_SERVICE_NAME: perfusionlab-worker-compute
