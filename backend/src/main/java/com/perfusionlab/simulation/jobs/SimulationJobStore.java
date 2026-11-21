@@ -27,11 +27,17 @@ public class SimulationJobStore {
     }
 
     public SimulationJobStatus create(UUID id, SimulationPreviewRequest input) {
+        return create(id, input, null, ExecutionProfile.GENERAL);
+    }
+
+    public SimulationJobStatus create(UUID id, SimulationPreviewRequest input, UUID batchId,
+                                      ExecutionProfile profile) {
         Instant submittedAt = Instant.now();
         jdbc.update("""
-                INSERT INTO simulation_jobs (job_id, state, submitted_at, input_json)
-                VALUES (?, 'QUEUED', ?, ?::jsonb)
-                """, id, Timestamp.from(submittedAt), toJson(input));
+                INSERT INTO simulation_jobs
+                    (job_id, state, submitted_at, input_json, batch_id, execution_profile)
+                VALUES (?, 'QUEUED', ?, ?::jsonb, ?, ?)
+                """, id, Timestamp.from(submittedAt), toJson(input), batchId, profile.name());
         return new SimulationJobStatus(id, SimulationJobStatus.State.QUEUED,
                 submittedAt, null, null, null, null);
     }
