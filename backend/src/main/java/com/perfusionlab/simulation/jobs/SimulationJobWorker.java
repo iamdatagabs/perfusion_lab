@@ -27,9 +27,9 @@ public class SimulationJobWorker {
             return;
         }
         try {
-            store.markSucceeded(message.jobId(), model.evaluate(message.input()));
+            store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input()));
         } catch (Exception exception) {
-            store.markFailed(message.jobId(), exception);
+            store.markFailed(message.jobId(), workerId, exception);
         }
     }
 
