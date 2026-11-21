@@ -52,7 +52,7 @@ Recommended common envelope:
 - `correlationId` and `causationId`
 - `payload`: immutable event-specific data
 
-Use the transactional outbox pattern when database writes and event publication must be atomic. Consumers should be idempotent and use bounded retries plus a dead-letter queue.
+**MVP status:** the API publishes `SimulationPreviewGenerated` through Spring's in-process application event mechanism and a listener records it. This establishes the domain-event seam, but it is not yet broker-backed asynchronous delivery. RabbitMQ is provisioned for local infrastructure; the next increment will add a durable event contract, broker publisher/consumer, retry policy, dead-letter queue and transactional outbox where persistence consistency requires it.
 
 ## Grid computing evolution
 
@@ -70,7 +70,7 @@ The first grid-computing experiment should be an embarrassingly parallel paramet
 
 ## MVP deployment decision
 
-The first increment is intentionally a **modular monolith** with clean domain boundaries and a worker-ready simulation contract. The landing page and API are separate concerns. RabbitMQ and PostgreSQL are provided in local infrastructure. Extracting a broker-backed worker into a separate deployable is the next milestone, not a requirement for the first demo.
+The first increment is intentionally a **modular monolith** with clean domain boundaries and a worker-ready simulation contract. The landing page and API are separate concerns. RabbitMQ and PostgreSQL are provided in local infrastructure; the MVP does not yet persist simulation records to PostgreSQL. Extracting a broker-backed worker into a separate deployable is the next milestone, not a requirement for the first demo.
 
 ## Initial quality attributes
 
