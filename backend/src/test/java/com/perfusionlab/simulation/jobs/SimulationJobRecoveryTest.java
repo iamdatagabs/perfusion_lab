@@ -13,8 +13,8 @@ class SimulationJobRecoveryTest {
 
         new SimulationJobRecovery(jdbc).recoverExpiredLeases();
 
-        verify(jdbc).update(argThat(sql -> sql.contains("correlation_id")
+        verify(jdbc).update(org.mockito.ArgumentMatchers.<String>argThat(sql -> sql.contains("correlation_id")
                 && sql.contains("'correlationId', correlation_id")
-                && sql.contains("FOR UPDATE SKIP LOCKED")), any(Object[].class));
+                && sql.contains("FOR UPDATE SKIP LOCKED")));
     }
 }
