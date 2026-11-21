@@ -199,7 +199,7 @@ Example request:
 curl -i -X POST http://localhost:8080/api/v1/simulations/jobs \\
   -H 'Content-Type: application/json' \\
   -H 'X-Correlation-ID: perfusion-experiment-2026-001' \\
-  -d '{"pumpFlowLMin":4.8,"systemicVascularResistance":10.0,"arterialSaturation":0.98,"hemoglobinGdL":12.0,"bodySurfaceAreaM2":1.9,"temperatureC":35.5}'
+  -d '{"pumpFlowLMin":4.8,"systemicVascularResistance":1200.0,"arterialSaturation":0.98,"hemoglobinGdL":12.0,"bodySurfaceAreaM2":1.9,"temperatureC":35.5}'
 ~~~
 
 ## Reliability / chaos checks
