@@ -8,6 +8,10 @@ public record SimulationJobMessage(
         SimulationPreviewRequest input,
         ExecutionProfile executionProfile
 ) {
+    public SimulationJobMessage {
+        if (executionProfile == null) executionProfile = ExecutionProfile.GENERAL;
+    }
+
     public SimulationJobMessage(UUID jobId, SimulationPreviewRequest input) {
         this(jobId, input, ExecutionProfile.GENERAL);
     }
