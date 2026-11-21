@@ -21,6 +21,11 @@ public record SimulationJobMessage(
         this(jobId, input, profile, null, null, jobId.toString(), null);
     }
 
+    public SimulationJobMessage(UUID jobId, SimulationPreviewRequest input, ExecutionProfile profile,
+                                String targetNodeId, UUID targetIncarnationId) {
+        this(jobId, input, profile, targetNodeId, targetIncarnationId, jobId.toString(), null);
+    }
+
     public SimulationJobMessage(UUID jobId, SimulationPreviewRequest input) {
         this(jobId, input, ExecutionProfile.GENERAL, null, null, jobId.toString(), null);
     }
