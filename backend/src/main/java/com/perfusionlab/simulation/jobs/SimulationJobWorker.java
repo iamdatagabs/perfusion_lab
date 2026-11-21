@@ -85,10 +85,10 @@ public class SimulationJobWorker {
     public void execute(SimulationJobMessage message) {
         if (message.executionProfile() != profile)
             throw new IllegalArgumentException("Message routed to worker with incompatible execution profile");
-        if (message.targetNodeId() != null && !message.targetNodeId().equals(nodeId))
-            throw new IllegalArgumentException("Message targeted to a different worker node");
-        if (message.targetIncarnationId() != null && !message.targetIncarnationId().equals(incarnationId))
-            throw new IllegalArgumentException("Message targeted to a stale worker process incarnation");
+        // A durable node queue can outlive a process incarnation. Acknowledge
+        // obsolete or misdirected target messages instead of requeueing poison messages.
+        if (message.targetNodeId() != null && !message.targetNodeId().equals(nodeId)) return;
+        if (message.targetIncarnationId() != null && !message.targetIncarnationId().equals(incarnationId)) return;
         if (!store.markRunning(message.jobId(), workerId, LEASE)) return;
         try { store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input())); }
         catch (Exception exception) { store.markFailed(message.jobId(), workerId, exception); }
