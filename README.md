@@ -6,53 +6,44 @@ PerfusionLab is an academic software engineering project exploring computational
 
 > **Educational/research prototype only.** It is not a medical device, clinical decision-support system, or substitute for perfusionist/clinical judgment. Its equations and generated values are simplified demonstrations and must not be used to guide patient care.
 
-## MVP
+## Current capabilities
 
-- Animated, responsive landing page at the repository root.
+- Responsive Portuguese landing page with interactive educational calculation preview.
 - Java 21 + Spring Boot API.
-- A deterministic, explicitly simplified hemodynamic/oxygen-delivery calculation preview.
-- Event publication seam and RabbitMQ-ready infrastructure.
-- Containerized local development with PostgreSQL and RabbitMQ.
-- Architecture designed for DDD bounded contexts and future distributed simulation workers.
+- Deterministic, simplified preview of estimated MAP and oxygen delivery.
+- Asynchronous simulation jobs dispatched through a durable RabbitMQ queue.
+- Worker consumer that executes the educational model and exposes job state/result.
+- PostgreSQL + RabbitMQ local infrastructure (PostgreSQL is reserved for the persistence increment).
+- DDD-oriented modular structure and documented scale-out path.
 
 ## Architecture direction
 
-The project follows a **hybrid architecture**:
-
 - **DDD:** bounded contexts for Simulation, Perfusion, Physiology, Experiment and Reporting.
-- **Microservices where justified:** independent deployment boundaries for API/control plane, simulation workers and analytics as workload and operational needs grow.
-- **EDA:** domain events and asynchronous job dispatch; consumers must be idempotent.
-- **Grid computing:** simulation jobs are designed to become independent, versioned workloads that can be scheduled across a pool of worker nodes.
+- **Hybrid deployment:** API/control plane and worker are logically separated; they currently run in one Spring Boot deployment and can be split into independent services later.
+- **EDA:** RabbitMQ direct exchange, durable queue and JSON message contract for simulation jobs.
+- **Grid computing:** the job contract is a foundation for multiple worker replicas/nodes. Scheduling, leases, distributed persistence and benchmark coordination are future increments.
 
-The MVP deliberately starts with a small deployable Java application rather than premature service proliferation. The worker contract and event boundary are established first; broker-backed orchestration and multi-node execution are subsequent increments.
-
-## Repository layout
-
-```text
-.
-├── index.html                 # GitHub Pages landing page + interactive demo
-├── backend/                   # Java 21 / Spring Boot API
-├── infra/docker-compose.yml   # PostgreSQL + RabbitMQ for local development
-└── docs/ARCHITECTURE.md       # Architecture decisions and scale-out roadmap
-```
+The current job registry is in-memory and therefore resets when the API restarts. RabbitMQ provides durable message queuing, but the job state/result is not yet persisted. Configure idempotency and durable result storage before production or multi-node operation.
 
 ## Run locally
 
 Requirements: Java 21+, Maven 3.9+, Docker Compose.
 
-```bash
+~~~bash
 docker compose -f infra/docker-compose.yml up -d
 cd backend
 mvn spring-boot:run
-```
+~~~
 
 API:
-- `GET /api/v1/health`
-- `POST /api/v1/simulations/preview`
+- GET /api/v1/health
+- POST /api/v1/simulations/preview — synchronous educational preview.
+- POST /api/v1/simulations/jobs — enqueue an asynchronous job; returns HTTP 202 and a job ID.
+- GET /api/v1/simulations/jobs/{jobId} — inspect QUEUED, RUNNING, SUCCEEDED or FAILED state and result.
 
-Example request:
+Example job request:
 
-```json
+~~~json
 {
   "pumpFlowLMin": 4.8,
   "hemoglobinGdL": 10.0,
@@ -61,13 +52,19 @@ Example request:
   "bodySurfaceAreaM2": 1.9,
   "temperatureC": 35.5
 }
-```
+~~~
 
-The preview returns illustrative calculations including estimated mean arterial pressure and oxygen delivery/index. Values are mathematical demonstrations, not clinical targets or recommendations.
+The result is a mathematical demonstration, not a clinical target, interpretation or recommendation.
+
+## Local services
+
+- RabbitMQ AMQP: localhost:5672
+- RabbitMQ management UI: http://localhost:15672 (perfusionlab / perfusionlab_dev)
+- PostgreSQL: localhost:5432 (perfusionlab / perfusionlab_dev)
 
 ## GitHub Pages
 
-The landing page is a standalone `index.html`. Enable **Settings → Pages → Deploy from a branch → feat/mvp-platform → / (root)** for a preview, or merge the branch into the default branch and publish from `main`.
+The landing page is a standalone index.html. Publish it from the default branch using the repository's GitHub Actions Pages workflow.
 
 ## Author
 
