@@ -15,6 +15,6 @@ class SimulationJobRecoveryTest {
 
         verify(jdbc).update(argThat(sql -> sql.contains("correlation_id")
                 && sql.contains("'correlationId', correlation_id")
-                && sql.contains("FOR UPDATE SKIP LOCKED")), any(Object[].class));
+                && sql.contains("FOR UPDATE SKIP LOCKED")));
     }
 }
