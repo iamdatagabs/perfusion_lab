@@ -90,7 +90,7 @@ curl -X POST http://localhost:8080/api/v1/experiments/batches \
   -H "Content-Type: application/json" \
   -d '{
     "executionProfile": "COMPUTE",
-    "parallelism": 2,
+    "parallelism": 1,
     "simulations": [
       {
         "pumpFlowLMin": 4.8,
