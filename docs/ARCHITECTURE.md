@@ -1,60 +1,80 @@
 # PerfusionLab — Architecture
 
-## Current implementation
+## Runtime topology
 
-The project begins as a modular Spring Boot application with explicit domain boundaries. The HTTP API acts as the control plane; simulation jobs are sent to RabbitMQ and consumed by a worker component.
+The API and worker are separate runtime roles built from the same Java 21 / Spring Boot artifact. They communicate through RabbitMQ and share PostgreSQL as the durable job registry.
 
 ~~~mermaid
 flowchart LR
-  Client[Research Console / API Client] --> API[Spring Boot API]
-  API -->|publish JSON job| Exchange[RabbitMQ Direct Exchange]
-  Exchange --> Queue[Durable Simulation Queue]
-  Queue --> Worker[Simulation Worker]
-  Worker --> Model[Simplified Educational Model]
-  Worker --> Store[In-memory Job Registry]
-  Client -->|poll job status| API
-  API --> Store
+  Client[Research Console / API Client] --> API[API container]
+  API --> DB[(PostgreSQL)]
+  API -->|publish JSON job| EX[RabbitMQ direct exchange]
+  EX --> Q[Durable simulation queue]
+  Q --> W1[Worker replica 1]
+  Q --> W2[Worker replica 2]
+  Q --> WN[Worker replica N]
+  W1 --> DB
+  W2 --> DB
+  WN --> DB
+  API -->|poll job state| DB
 ~~~
 
-## Job lifecycle
+Set PERFUSION_ROLE=api for the HTTP process and PERFUSION_ROLE=worker for consumers. Worker containers use SPRING_MAIN_WEB_APPLICATION_TYPE=none. Compose starts one worker by default; --scale worker=N starts N competing consumers.
 
-1. Client submits a validated simulation input to POST /api/v1/simulations/jobs.
-2. API creates a UUID and records QUEUED.
-3. API publishes a JSON message to the durable RabbitMQ queue.
-4. Worker marks the job RUNNING, executes the model and stores the result as SUCCEEDED; failures are marked FAILED.
-5. Client polls GET /api/v1/simulations/jobs/{jobId}.
+## Job lifecycle and concurrency
+
+1. API validates the request and inserts a QUEUED row containing the immutable input JSON and submission timestamp.
+2. API publishes a JSON message to the durable RabbitMQ queue.
+3. A worker atomically claims the job with UPDATE ... WHERE state = 'QUEUED'. Only one consumer can change that row to RUNNING.
+4. The worker executes the selected model version and persists SUCCEEDED plus result JSON, or FAILED plus a sanitized error class.
+5. API reads current state and result from PostgreSQL.
 
 States: QUEUED → RUNNING → SUCCEEDED | FAILED.
 
-## Important current limits
+The compare-and-set claim prevents duplicate deliveries from concurrently executing a job. It does not provide exactly-once execution or recovery after worker loss.
 
-- Job status and results live in process memory; restarting the API loses them.
-- RabbitMQ queue is durable, but the job registry is not. A broker acknowledgement after process loss can leave state inconsistent.
-- API and worker are components in one deployment, not independently deployed services yet.
-- No distributed scheduler, worker lease, retry policy, dead-letter queue, or exactly-once guarantee exists yet.
-- PostgreSQL is provisioned but not yet used for job persistence.
-- The simplified equations are illustrative only and have not been clinically validated.
+## Persistence model
+
+simulation_jobs stores:
+- job_id: UUID primary key.
+- state: constrained lifecycle state.
+- submitted_at, started_at, completed_at: UTC timestamps.
+- input_json: submitted input for traceability.
+- result_json: output payload on success.
+- error: sanitized exception class on failure.
+
+Flyway manages the schema. Both API and worker use the same PostgreSQL database.
+
+## Horizontal worker pool and benchmark
+
+Workers are competing consumers on one durable queue. This is a useful first horizontal-scaling experiment, but it is not yet a grid scheduler. The benchmark helper at scripts/benchmark_workers.py submits a fixed workload and reports throughput, p50/p95 completion latency and terminal job counts.
+
+Run with worker pool sizes 1, 2, 4 and 8 on the same host and compare repeated runs. Record CPU, memory, database and broker utilization separately before drawing scaling conclusions.
+
+## Reliability gaps to close
+
+- **Transactional outbox:** currently, job insertion and broker publication are separate operations. A crash between them may strand a QUEUED row.
+- **Leases and heartbeats:** a worker crash after claiming a job can leave it RUNNING; no stale-job reaper exists.
+- **Retry and dead-letter policy:** not yet configured. The current worker records model exceptions as FAILED.
+- **Observability:** job-level traces, worker identity, queue age and structured metrics need a later increment.
+- **Security:** local Compose credentials are development-only.
+
+## Next distributed-computing increment
+
+1. Add transactional outbox and publisher confirms.
+2. Add worker leases, heartbeat, timeout and stale-job recovery.
+3. Add bounded retry and dead-letter queue.
+4. Add experiment batches, model version pinning, random seeds and checksums.
+5. Add a scheduler for resource-aware placement across local or cloud nodes.
+6. Benchmark 1, 2, 4 and 8 workers and report speedup, efficiency, throughput and tail latency.
 
 ## Bounded contexts
 
 - **Simulation:** job lifecycle, model versioning, execution orchestration.
-- **Perfusion:** future domain model for extracorporeal circuit configuration.
-- **Physiology:** future validated physiological variables and model interfaces.
-- **Experiment:** parameter sweeps, reproducibility metadata and benchmark runs.
+- **Perfusion:** extracorporeal circuit configuration.
+- **Physiology:** physiological variables and validated model interfaces.
+- **Experiment:** parameter sweeps, reproducibility metadata and benchmarks.
 - **Reporting:** analysis, plots and exportable research artifacts.
-
-## Evolution path
-
-1. Persist job state and results in PostgreSQL; introduce transactional outbox for reliable dispatch.
-2. Extract worker into its own deployable service and scale replicas horizontally.
-3. Add idempotency keys, bounded retries, dead-letter queue, execution timeout and worker heartbeat/leases.
-4. Add scheduler for parameter sweeps and resource-aware placement across worker nodes.
-5. Benchmark 1, 2, 4 and 8 workers with reproducible workloads; report throughput, latency and failure rate.
-6. Only after independent scientific validation, evaluate richer physiological models.
-
-## Grid computing direction
-
-Each job should become a self-contained immutable workload containing input, model version, experiment identifier, seed and resource requirements. The scheduler can then distribute jobs to workers across a local server pool or cloud instances. A future implementation should record node identity, start/end timestamps, runtime, software version and checksum for reproducibility.
 
 ## Safety and research scope
 
