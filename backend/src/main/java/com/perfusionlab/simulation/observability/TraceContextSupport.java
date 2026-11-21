@@ -31,10 +31,13 @@ public class TraceContextSupport {
                 carrier.get("traceparent"));
     }
 
-    public <T> T inWorkerSpan(SimulationJobMessage message, Supplier<T> work) {
+    public <T> T inSpan(SimulationJobMessage message, String spanName, Supplier<T> work) {
         Span.Builder parent = propagator.extract(message,
                 (carrier, key) -> "traceparent".equalsIgnoreCase(key) ? carrier.traceparent() : null);
-        Span span = parent.name("perfusionlab.simulation.execute").start();
+        Span span = parent.name(spanName)
+                .tag("correlation.id", message.correlationId())
+                .tag("simulation.job_id", message.jobId().toString())
+                .start();
         String previousCorrelation = MDC.get("correlationId");
         MDC.put("correlationId", message.correlationId());
         try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {
@@ -44,5 +47,9 @@ public class TraceContextSupport {
             if (previousCorrelation == null) MDC.remove("correlationId");
             else MDC.put("correlationId", previousCorrelation);
         }
+    }
+
+    public <T> T inWorkerSpan(SimulationJobMessage message, Supplier<T> work) {
+        return inSpan(message, "perfusionlab.simulation.execute", work);
     }
 }
