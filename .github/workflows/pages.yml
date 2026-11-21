@@ -2,7 +2,7 @@ name: Deploy PerfusionLab MVP
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/new-mvp-pages-indicators"]
     paths:
       - "index.html"
       - "assets/**"
@@ -39,7 +39,7 @@ jobs:
         run: node --test tests/simulator.test.js
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main'
     needs: test
     environment:
       name: github-pages
