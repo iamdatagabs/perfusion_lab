@@ -9,25 +9,30 @@ PerfusionLab is an academic software engineering project exploring computational
 ## Current capabilities
 
 - Responsive Portuguese landing page with interactive educational calculation preview.
-- Java 21 + Spring Boot API and a separately runnable worker role from the same artifact.
+- Java 21 + Spring Boot API and separately runnable worker role from the same artifact.
 - Asynchronous jobs dispatched through RabbitMQ and executed by competing worker consumers.
 - PostgreSQL persistence for job inputs, lifecycle timestamps, states, errors and results.
-- Flyway-managed database schema.
-- Atomic QUEUED → RUNNING claim to avoid concurrent duplicate execution of the same queued job.
-- Docker Compose topology with API, worker, PostgreSQL and RabbitMQ.
-- Repeatable HTTP benchmark script for comparing worker pool sizes.
+- Transactional outbox: job row and dispatch event commit in the same PostgreSQL transaction.
+- Correlated publisher confirms and mandatory routing checks before an outbox event is marked published.
+- Bounded exponential retry for failed outbox publication, ending in DEAD after eight attempts.
+- Worker identity, heartbeat and expiring leases, with automatic recovery of stale RUNNING jobs.
+- Fenced completion: a worker can update a job only while it still owns that job's current lease.
+- Flyway-managed schema and Docker Compose topology with API, worker, PostgreSQL and RabbitMQ.
+- HTTP benchmark script for comparing worker pool sizes.
 
 ## Architecture
 
 - **DDD:** bounded contexts for Simulation, Perfusion, Physiology, Experiment and Reporting.
 - **Hybrid deployment:** API/control plane and worker runtime are separate containers, sharing the same Java artifact and database.
 - **EDA:** RabbitMQ direct exchange, durable queue and JSON message contract.
-- **Horizontal workers:** run multiple worker replicas as competing consumers.
-- **Grid-computing direction:** benchmark and scheduling foundation is present; multi-host resource-aware scheduling is a future step.
+- **Transactional outbox:** PostgreSQL atomically stores the job and its event; a publisher relays events to RabbitMQ.
+- **At-least-once delivery:** a crash after broker confirmation but before marking the outbox row published can cause duplicate delivery. Atomic worker claims and ownership fencing make repeated messages safe.
+- **Horizontal workers:** replicas compete on one queue; stale leases are recovered by the API role.
+- **Grid-computing direction:** multi-host resource-aware scheduling remains future work.
 
 ### Job lifecycle
 
-POST /api/v1/simulations/jobs persists a job as QUEUED, then publishes its message. A worker claims it, changes it to RUNNING, executes the model and persists SUCCEEDED or FAILED. The API reads the durable state from PostgreSQL.
+POST /api/v1/simulations/jobs writes the QUEUED job and SimulationJobRequested outbox event in one transaction. The publisher waits for RabbitMQ confirmation before marking the event PUBLISHED. A worker claims the job, renews its lease while processing, and stores SUCCEEDED or FAILED. If a worker disappears, the API role requeues an expired lease up to three execution attempts.
 
 ## Run locally with Docker
 
@@ -41,19 +46,13 @@ API: http://localhost:8080
 
 RabbitMQ management: http://localhost:15672 (perfusionlab / perfusionlab_dev)
 
-The first startup builds the Java image, starts PostgreSQL and RabbitMQ, runs Flyway migrations, then starts the API and one worker.
-
 ### Scale the worker pool
 
 ~~~bash
 docker compose -f infra/docker-compose.yml up --build -d --scale worker=4
 ~~~
 
-Use 1, 2, 4 or 8 worker replicas for a first scaling experiment. The API remains a single instance in this local topology.
-
 ### Benchmark
-
-Run one benchmark for each worker count after setting the desired replica count:
 
 ~~~bash
 python scripts/benchmark_workers.py --workers 1 --jobs 100 --concurrency 16
@@ -62,7 +61,7 @@ python scripts/benchmark_workers.py --workers 4 --jobs 100 --concurrency 16
 python scripts/benchmark_workers.py --workers 8 --jobs 100 --concurrency 16
 ~~~
 
-The script reports successful/failed jobs, wall time, throughput and p50/p95 completion latency. For meaningful comparisons, use the same machine, job count, concurrency, image build and warm-up procedure; repeat each run and compare medians. These are software throughput measurements, not clinical performance metrics.
+The script reports successful/failed jobs, wall time, throughput and p50/p95 completion latency. These are software throughput measurements, not clinical performance metrics.
 
 ## API
 
@@ -71,26 +70,15 @@ The script reports successful/failed jobs, wall time, throughput and p50/p95 com
 - POST /api/v1/simulations/jobs — enqueue an asynchronous job; returns HTTP 202 and a job ID.
 - GET /api/v1/simulations/jobs/{jobId} — inspect QUEUED, RUNNING, SUCCEEDED or FAILED state and result.
 
-Example request:
+## Reliability semantics and limitations
 
-~~~json
-{
-  "pumpFlowLMin": 4.8,
-  "hemoglobinGdL": 10.0,
-  "arterialSaturation": 0.98,
-  "systemicVascularResistance": 1200.0,
-  "bodySurfaceAreaM2": 1.9,
-  "temperatureC": 35.5
-}
-~~~
-
-## Important reliability limits
-
-- Job creation and RabbitMQ publication are not yet coordinated by a transactional outbox. A process crash between database commit and message publication can leave a queued job undispatched.
-- A worker crash after claiming a job can leave it in RUNNING; leases, heartbeats and stale-job recovery are not implemented yet.
-- Retry policy, dead-letter queue and operational alerting remain future work.
-- Worker replicas compete on one RabbitMQ queue; there is not yet a cross-host grid scheduler or heterogeneous resource placement.
-- PostgreSQL and RabbitMQ local credentials are development-only and must be replaced for shared or deployed environments.
+- Delivery is **at least once**, not exactly once. Consumers must remain idempotent.
+- Outbox events retry with bounded exponential backoff; events reaching eight publication attempts enter DEAD and require operational inspection/replay.
+- Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
+- Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
+- The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
+- There is not yet a dedicated dead-letter queue for broker-rejected messages, distributed tracing, alerting, or resource-aware grid scheduling.
+- Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 
 ## Author
