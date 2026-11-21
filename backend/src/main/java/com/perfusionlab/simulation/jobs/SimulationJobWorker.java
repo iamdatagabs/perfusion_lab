@@ -93,7 +93,7 @@ public class SimulationJobWorker {
         publishHeartbeat();
     }
 
-    @RabbitListener(id = "workerListener", queues = {"#{@workerQueueName}", "#{@simulationJobWorker.nodeQueueName}"})
+    @RabbitListener(id = "workerListener", queues = {"#{@workerQueueName}", "#{@workerNodeQueueName}"})
     public void execute(SimulationJobMessage message) {
         traceContext.inWorkerSpan(message, () -> {
             executeInContext(message);

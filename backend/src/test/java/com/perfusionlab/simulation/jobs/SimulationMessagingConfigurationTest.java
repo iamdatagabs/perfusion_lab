@@ -21,6 +21,12 @@ class SimulationMessagingConfigurationTest {
     }
 
     @Test
+    void createsNodeQueueNameWithoutDependingOnWorkerBean() {
+        assertEquals("perfusionlab.simulation.node.worker-a",
+                configuration.workerNodeQueueName("worker-a", "GENERAL"));
+    }
+
+    @Test
     void profileQueuesDeadLetterRejectedMessages() {
         Queue queue = configuration.generalSimulationQueue();
 
