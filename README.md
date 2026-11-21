@@ -149,6 +149,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - GET /actuator/metrics/perfusionlab.worker.execution — inspect worker execution latency.
 - GET /actuator/metrics/perfusionlab.outbox.events — inspect outbox publication, retry and dead-letter outcomes.
 - GET /actuator/metrics/perfusionlab.rabbitmq.dead_letter.messages — inspect the RabbitMQ dead-letter queue depth.
+- Jaeger UI at http://localhost:16686 — inspect distributed traces when running the local Compose stack.
 - POST /api/v1/cluster/nodes/{nodeId}/drain — authenticated graceful drain; reassigns queued jobs and lets running jobs finish.
 
 ## Reliability semantics and limitations
@@ -158,7 +159,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
 - Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
 - The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
-- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. Node drain reassigns queued jobs to profile queues and allows already-running work to finish; the response exposes running and remaining queued assignment counts. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. Worker profile queues and node queues dead-letter rejected deliveries to the durable `perfusionlab.simulation.dead` queue. The listener does not automatically requeue rejected/poison messages; the explicit `ImmediateRequeueAmqpException` path remains reserved for temporary shared-queue handoff during node drain. Inspect the queue in the RabbitMQ management UI and manually redrive only after correcting the cause, publishing the original message to the matching `simulation.execute.{profile}` routing key on `perfusionlab.simulation`. The outbox also has its own terminal `DEAD` state after eight publication attempts; this is separate from RabbitMQ's consumer dead-letter queue. Metrics are exposed through Spring Boot Actuator. Distributed trace context propagation and alert delivery remain future work.
+- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. Node drain reassigns queued jobs to profile queues and allows already-running work to finish; the response exposes running and remaining queued assignment counts. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. Worker profile queues and node queues dead-letter rejected deliveries to the durable `perfusionlab.simulation.dead` queue. The listener does not automatically requeue rejected/poison messages; the explicit `ImmediateRequeueAmqpException` path remains reserved for temporary shared-queue handoff during node drain. Inspect the queue in the RabbitMQ management UI and manually redrive only after correcting the cause, publishing the original message to the matching `simulation.execute.{profile}` routing key on `perfusionlab.simulation`. The outbox also has its own terminal `DEAD` state after eight publication attempts; this is separate from RabbitMQ's consumer dead-letter queue. Metrics are exposed through Spring Boot Actuator. 
 - Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 
@@ -178,3 +179,29 @@ Apache-2.0.
 New jobs first attempt to reserve a live READY node in the selected execution profile. PostgreSQL locks the candidate worker row with `FOR UPDATE SKIP LOCKED`; within the same transaction, the job is inserted with the selected `target_node_id` and `target_incarnation_id`, and its outbox event carries the same target. A queued targeted job counts as a reserved slot; once running, that same row continues to count as occupied capacity. This avoids a separate counter that could drift after crashes.
 
 The scheduler prefers nodes with fewer assigned QUEUED/RUNNING jobs, then lower best-effort system CPU load. If no eligible node has a free slot, the job remains unpinned and uses the existing profile queue. If a worker lease expires, recovery clears the old node pin and emits a profile-routed retry, allowing a fresh process incarnation to claim the job. Delivery remains at least once and job claiming remains guarded by the database state transition.
+
+
+## Distributed tracing and correlation
+
+The API accepts an optional `X-Correlation-ID` request header. Safe values are echoed in the response and included in application log context; missing or invalid values are replaced with a generated UUID. A correlation ID is shared by all jobs submitted in the same experiment batch.
+
+Each persisted job stores its correlation ID and W3C `traceparent`. The transactional outbox retains that context through retries and lease recovery. The publisher creates an outbox span and injects its child context into the RabbitMQ message; the worker extracts it and creates a simulation execution span. Spans carry searchable `correlation.id` and `simulation.job_id` attributes.
+
+The local Compose stack includes Jaeger with OTLP/HTTP ingestion:
+- UI: http://localhost:16686
+- OTLP/HTTP: http://localhost:4318/v1/traces
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your collector endpoint outside Compose.
+- Sampling defaults to 100% for local development; set `TRACING_SAMPLING_PROBABILITY` appropriately for shared or production deployments.
+
+Example request:
+
+~~~bash
+curl -i -X POST http://localhost:8080/api/v1/simulations/jobs \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-Correlation-ID: perfusion-experiment-2026-001' \\
+  -d '{"pumpFlowLMin":4.8,"systemicVascularResistance":10.0,"arterialSaturation":0.98,"hemoglobinGdL":12.0,"bodySurfaceAreaM2":1.9,"temperatureC":35.5}'
+~~~
+
+## Reliability / chaos checks
+
+The backend test suite includes a simulated RabbitMQ outage: a failed publish must return the outbox event to retry scheduling rather than lose it. Lease recovery tests verify trace context is retained when work is reassigned, and existing store tests cover competing worker claims. These are deterministic fault-injection unit tests; they do not replace multi-container integration or production chaos experiments.
