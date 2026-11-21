@@ -20,8 +20,9 @@ public class SimulationJobWorker {
         try {
             store.markSucceeded(message.jobId(), model.evaluate(message.input()));
         } catch (Exception exception) {
+            // Record the failure and acknowledge this message; retries/DLQ policy
+            // will be introduced with persistent job state and idempotency.
             store.markFailed(message.jobId(), exception);
-            throw exception;
         }
     }
 }
