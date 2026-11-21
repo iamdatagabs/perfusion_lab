@@ -53,6 +53,19 @@
           </form>
           <aside class="panel output-panel"><div class="panel-heading"><div><span class="eyebrow">MODEL OUTPUT</span><h2>Resultados</h2></div><span class="result-state" id="resultState">AGUARDANDO</span></div><div id="previewResults" class="result-placeholder"><div class="placeholder-icon">⌁</div><strong>Aguardando parâmetros</strong><p>Execute uma prévia para visualizar os resultados estimados pelo modelo.</p></div><div class="disclaimer">⚠ <strong>Uso educacional.</strong> O modelo é simplificado e não possui validação clínica. Nenhum resultado deve ser usado para tomada de decisão assistencial.</div></aside>
         </div>
+        <article class="panel timeline-panel">
+          <div class="panel-heading"><div><span class="eyebrow">TIME-INDEXED SCENARIO</span><h2>Evolução temporal de cenário</h2><p class="muted">Interpola linearmente uma variável de entrada e recalcula o modelo estático em cada instante.</p></div><span class="version">MAX 361 PONTOS</span></div>
+          <div class="timeline-controls">
+            <label class="form-field"><span>Variável alterada</span><select id="timelineParameter"><option value="pumpFlowLMin">Fluxo de bomba (L/min)</option><option value="hemoglobinGdL">Hemoglobina (g/dL)</option><option value="arterialSaturation">Saturação arterial (%)</option><option value="systemicVascularResistance">Resistência vascular sistêmica</option><option value="bodySurfaceAreaM2">Superfície corporal (m²)</option><option value="temperatureC">Temperatura (°C)</option></select></label>
+            <label class="form-field"><span>Valor final</span><input id="timelineEndValue" type="number" step="any" value="6.0"></label>
+            <label class="form-field"><span>Duração (s)</span><input id="timelineDuration" type="number" min="1" max="3600" value="120"></label>
+            <label class="form-field"><span>Intervalo (s)</span><input id="timelineStep" type="number" min="1" max="300" value="10"></label>
+            <button class="button primary" type="button" id="runTimeline">Gerar linha temporal</button>
+          </div>
+          <div id="timelineOutput" class="timeline-output"><div class="empty">Configure o cenário e gere a sequência temporal.</div></div>
+          <div class="timeline-actions"><button class="button small secondary" id="exportTimelineCsv" disabled>Exportar CSV</button><button class="button small secondary" id="exportTimelineJson" disabled>Exportar JSON</button></div>
+          <p class="subtle-note">A sequência é uma interpolação matemática de entrada, não um modelo fisiológico dinâmico. Não representa resposta biológica real nem é validada para uso clínico.</p>
+        </article>
       </section>
       <section class="view" id="view-jobs">
         <div class="page-heading"><div><div class="eyebrow">EXPERIMENT MANAGEMENT / 03</div><h1>Experimentos</h1><p>Histórico recente de jobs submetidos, estado de execução e resultados disponíveis.</p></div><button class="button primary" data-go="simulate">＋ Nova simulação</button></div>
