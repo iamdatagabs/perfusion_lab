@@ -7,7 +7,9 @@ The API and worker are separate runtime roles built from the same Java 21 / Spri
 ~~~mermaid
 flowchart LR
   Client[Research Console / API Client] --> API[API container]
-  API --> DB[(PostgreSQL)]
+  API --> Planner[Execution planner]
+  Planner --> DB[(PostgreSQL)]
+  API --> DB
   API --> O[(Transactional Outbox)]
   O --> PUB[Outbox publisher]
   PUB -->|confirmed publish| EX[RabbitMQ exchange]
@@ -83,8 +85,7 @@ Workers are competing consumers on one durable queue. This is a useful horizonta
 - Add per-job heartbeat, cancellation and execution fencing for long-running tasks.
 - Add distributed tracing, structured logs, alerting and queue-age metrics.
 - Add experiment batches, model version pinning, random seeds and checksums.
-- Add container-aware CPU/memory telemetry and direct node-level placement with multi-host agents.
-- Add multi-host agent registration, capability negotiation and resource-aware scheduling across local or cloud nodes.
+- Add container-aware CPU/memory telemetry, direct node-level placement and multi-host agent registration with capability negotiation.
 
 ## Bounded contexts
 

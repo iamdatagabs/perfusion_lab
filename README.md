@@ -59,13 +59,14 @@ docker compose -f infra/docker-compose.yml up --build -d
 docker compose -f infra/docker-compose.yml up -d --scale worker=4
 ~~~
 
-Inspect active nodes and available execution slots:
+Inspect active nodes, runtime telemetry and aggregated capacity by profile:
 
 ~~~bash
 curl http://localhost:8080/api/v1/cluster/nodes
+curl http://localhost:8080/api/v1/cluster/capacity
 ~~~
 
-Worker CPU/RAM values are declared configuration, not hardware telemetry. A heartbeat older than two minutes is excluded from the active inventory.
+Configured CPU/RAM/slots are declarations. `systemCpuLoad` is a best-effort system-level measurement; heap values describe the JVM, not total host/container memory. A heartbeat older than two minutes is excluded from scheduling.
 
 ### Scale the worker pool
 
@@ -110,6 +111,7 @@ Poll the returned batch URL at GET /api/v1/experiments/batches/{batchId}. `execu
 Run a batch benchmark:
 
 ~~~bash
+python scripts/benchmark_grid.py --profile AUTO --jobs 100 --parallelism 2
 python scripts/benchmark_grid.py --profile COMPUTE --jobs 100 --parallelism 2
 python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --baseline-sequential-ms 25000
 ~~~
@@ -122,7 +124,8 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - GET /api/v1/simulations/jobs/{jobId} — inspect QUEUED, RUNNING, SUCCEEDED or FAILED state and result.
 - POST /api/v1/experiments/batches — atomically create a batch and all its simulation jobs.
 - GET /api/v1/experiments/batches/{batchId} — inspect progress, throughput, optional speedup and efficiency.
-- GET /api/v1/cluster/nodes — inspect active worker nodes, declared capacity and runtime telemetry.\n- GET /api/v1/cluster/capacity — inspect aggregated capacity and observed pressure by execution profile.
+- GET /api/v1/cluster/nodes — inspect active worker nodes, declared capacity and runtime telemetry.
+- GET /api/v1/cluster/capacity — inspect aggregated capacity and observed pressure by execution profile.
 
 ## Reliability semantics and limitations
 
