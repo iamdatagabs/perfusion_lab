@@ -27,17 +27,25 @@ public class SimulationJobStore {
     }
 
     public SimulationJobStatus create(UUID id, SimulationPreviewRequest input) {
-        return create(id, input, null, ExecutionProfile.GENERAL);
+        return create(id, input, null, ExecutionProfile.GENERAL, null);
     }
 
     public SimulationJobStatus create(UUID id, SimulationPreviewRequest input, UUID batchId,
                                       ExecutionProfile profile) {
+        return create(id, input, batchId, profile, null);
+    }
+
+    public SimulationJobStatus create(UUID id, SimulationPreviewRequest input, UUID batchId,
+                                      ExecutionProfile profile, WorkerNodeAssignment assignment) {
         Instant submittedAt = Instant.now();
         jdbc.update("""
                 INSERT INTO simulation_jobs
-                    (job_id, state, submitted_at, input_json, batch_id, execution_profile)
-                VALUES (?, 'QUEUED', ?, ?::jsonb, ?, ?)
-                """, id, Timestamp.from(submittedAt), toJson(input), batchId, profile.name());
+                    (job_id, state, submitted_at, input_json, batch_id, execution_profile,
+                     target_node_id, target_incarnation_id)
+                VALUES (?, 'QUEUED', ?, ?::jsonb, ?, ?, ?, ?)
+                """, id, Timestamp.from(submittedAt), toJson(input), batchId, profile.name(),
+                assignment == null ? null : assignment.nodeId(),
+                assignment == null ? null : assignment.incarnationId());
         return new SimulationJobStatus(id, SimulationJobStatus.State.QUEUED,
                 submittedAt, null, null, null, null);
     }
@@ -49,12 +57,17 @@ public class SimulationJobStore {
 
     public boolean markRunning(UUID id, String workerId, Duration lease) {
         return jdbc.update("""
-                UPDATE simulation_jobs
+                UPDATE simulation_jobs j
                 SET state = 'RUNNING', started_at = now(), worker_id = ?,
                     heartbeat_at = now(), lease_expires_at = now() + (? * interval '1 second'),
                     attempt_count = attempt_count + 1
-                WHERE job_id = ? AND state = 'QUEUED'
-                """, workerId, lease.toSeconds(), id) == 1;
+                FROM worker_nodes n
+                WHERE j.job_id = ? AND j.state = 'QUEUED'
+                  AND n.worker_id = ?
+                  AND (j.target_node_id IS NULL OR
+                       (j.target_node_id = n.node_id AND
+                        j.target_incarnation_id = n.incarnation_id))
+                """, workerId, lease.toSeconds(), id, workerId) == 1;
     }
 
     public void heartbeat(String workerId, Duration lease) {
