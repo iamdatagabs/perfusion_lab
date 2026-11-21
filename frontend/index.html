@@ -65,6 +65,19 @@
           <div id="timelineOutput" class="timeline-output"><div class="empty">Configure o cenário e gere a sequência temporal.</div></div>
           <div class="timeline-actions"><button class="button small secondary" id="exportTimelineCsv" disabled>Exportar CSV</button><button class="button small secondary" id="exportTimelineJson" disabled>Exportar JSON</button></div>
           <p class="subtle-note">A sequência é uma interpolação matemática de entrada, não um modelo fisiológico dinâmico. Não representa resposta biológica real nem é validada para uso clínico.</p>
+          <div class="multivariate-builder">
+            <div class="panel-heading"><div><span class="eyebrow">MULTIVARIATE SCENARIO</span><h2>Variação simultânea de parâmetros</h2><p class="muted">Selecione duas ou mais entradas para interpolar simultaneamente.</p></div><span class="version">ATÉ 6 VARIÁVEIS</span></div>
+            <div class="multi-grid">
+              <label class="multi-param"><input type="checkbox" class="multi-enable" value="pumpFlowLMin" checked><span>Fluxo de bomba (L/min)</span><input type="number" class="multi-target" data-param="pumpFlowLMin" min="0.1" max="10" step="0.1" value="6.0"></label>
+              <label class="multi-param"><input type="checkbox" class="multi-enable" value="hemoglobinGdL" checked><span>Hemoglobina (g/dL)</span><input type="number" class="multi-target" data-param="hemoglobinGdL" min="1" max="25" step="0.1" value="12"></label>
+              <label class="multi-param"><input type="checkbox" class="multi-enable" value="arterialSaturation"><span>Saturação arterial (%)</span><input type="number" class="multi-target" data-param="arterialSaturation" min="50" max="100" step="1" value="98"></label>
+              <label class="multi-param"><input type="checkbox" class="multi-enable" value="systemicVascularResistance"><span>Resistência vascular sistêmica</span><input type="number" class="multi-target" data-param="systemicVascularResistance" min="100" max="5000" step="10" value="1400"></label>
+              <label class="multi-param"><input type="checkbox" class="multi-enable" value="bodySurfaceAreaM2"><span>Superfície corporal (m²)</span><input type="number" class="multi-target" data-param="bodySurfaceAreaM2" min="0.3" max="3" step="0.01" value="1.8"></label>
+              <label class="multi-param"><input type="checkbox" class="multi-enable" value="temperatureC"><span>Temperatura (°C)</span><input type="number" class="multi-target" data-param="temperatureC" min="15" max="40" step="0.1" value="36"></label>
+            </div>
+            <div class="multi-actions"><button class="button primary" type="button" id="runMultivariate">Gerar cenário multivariável</button><button class="button small secondary" id="exportMultivariateCsv" disabled>Exportar CSV</button><button class="button small secondary" id="exportMultivariateJson" disabled>Exportar JSON</button></div>
+            <div id="multivariateOutput" class="timeline-output"><div class="empty">Selecione os parâmetros e gere o cenário multivariável.</div></div>
+          </div>
         </article>
       </section>
       <section class="view" id="view-jobs">
