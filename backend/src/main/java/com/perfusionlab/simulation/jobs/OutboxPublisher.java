@@ -51,7 +51,15 @@ public class OutboxPublisher {
                                 return message;
                             },
                             correlation);
-                    CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
+                    CorrelationData.Confirm confirm;
+                    try {
+                        confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Interrupted while waiting for RabbitMQ publisher confirm", exception);
+                    } catch (Exception exception) {
+                        throw new IllegalStateException("Could not confirm RabbitMQ publication", exception);
+                    }
                     if (!confirm.isAck()) {
                         throw new IllegalStateException("RabbitMQ rejected publication: " + confirm.getReason());
                     }
