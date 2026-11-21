@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: perfusionlab-preview-api
+    runtime: node
+    rootDir: preview-api
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    plan: free
+    envVars:
+      - key: NODE_VERSION
+        value: 22
