@@ -2,7 +2,7 @@ const API_KEY='perfusionlab.apiBase';
 const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'': '';
 let apiBase=(localStorage.getItem(API_KEY)??defaultBase()).replace(/\/$/,'');
 const $=id=>document.getElementById(id);
-const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null};
+const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[]};
 const fmt=(v,d=1)=>v==null?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const date=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,7 +35,7 @@ $('batchForm').addEventListener('submit',async e=>{
     button.disabled=true;button.textContent='Criando lote...';
     const base=formPayload();
     const batch=await request('/api/v1/experiments/batches',{method:'POST',body:JSON.stringify({
-      executionProfile:$('batchProfile').value,parallelism,simulations:Array.from({length:count},()=>({...base}))
+      executionProfile:$('batchProfile').value,parallelism,simulations:state.sweepInputs.length?state.sweepInputs:Array.from({length:count},()=>({...base}))
     })});
     $('batchStatus').hidden=false;
     $('batchStatus').innerHTML='<strong>Lote criado</strong><div class="mono">'+esc(batch.batchId)+'</div><p>Consultando estado dos '+batch.jobCount+' jobs...</p>';
@@ -72,7 +72,47 @@ function renderCluster(){const active=state.nodes.filter(n=>n.nodeStatus==='READ
 async function loadOverview(){await Promise.all([loadJobs(),loadCluster()]);const pending=state.jobs.filter(j=>['QUEUED','RUNNING'].includes(j.state)).length;$('statJobs').textContent=state.jobs.length;$('statRunning').textContent=pending;$('statNodes').textContent=state.nodes.filter(n=>n.nodeStatus==='READY').length;$('statSlots').textContent=state.capacity.reduce((a,c)=>a+c.availableSlots,0)}
 function formPayload(){const f=new FormData($('simulationForm'));return {pumpFlowLMin:Number(f.get('pumpFlowLMin')),hemoglobinGdL:Number(f.get('hemoglobinGdL')),arterialSaturation:Number(f.get('arterialSaturationPct'))/100,systemicVascularResistance:Number(f.get('systemicVascularResistance')),bodySurfaceAreaM2:Number(f.get('bodySurfaceAreaM2')),temperatureC:Number(f.get('temperatureC'))}}
 function renderPreview(r){$('resultState').textContent='PRÉVIA CALCULADA';$('previewResults').className='';$('previewResults').innerHTML=renderResult(r)+'<p class="subtle-note">Modelo '+esc(r.modelVersion)+' · '+esc(date(r.generatedAt))+'</p>'}
-$('previewButton').addEventListener('click',async()=>{const form=$('simulationForm');if(!form.reportValidity())return;try{$('previewButton').disabled=true;$('resultState').textContent='CALCULANDO...';const r=await request('/api/v1/simulations/preview',{method:'POST',body:JSON.stringify(formPayload())});renderPreview(r)}catch(e){toast('Não foi possível calcular a prévia: '+e.message);$('resultState').textContent='ERRO'}finally{$('previewButton').disabled=false}});
+
+const sweepSpecs={
+ pumpFlowLMin:{min:.1,max:10,step:1,label:'Fluxo de bomba (L/min)'},
+ hemoglobinGdL:{min:1,max:25,step:1,label:'Hemoglobina (g/dL)'},
+ arterialSaturation:{min:.5,max:1,step:.01,label:'Saturação arterial (%)',scale:100},
+ systemicVascularResistance:{min:100,max:5000,step:100,label:'Resistência vascular sistêmica'},
+ bodySurfaceAreaM2:{min:.3,max:3,step:.1,label:'Superfície corporal (m²)'},
+ temperatureC:{min:15,max:40,step:1,label:'Temperatura (°C)'}
+};
+function downloadText(name,text,mime){const a=document.createElement('a'),blob=new Blob([text],{type:mime});a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
+function renderSweep(){
+ const rows=state.sweepResults;
+ if(!rows.length){$('sweepOutput').innerHTML='<div class="empty">Configure uma varredura para visualizar a comparação.</div>';return}
+ const max=Math.max(...rows.map(x=>x.result.estimatedOxygenDeliveryIndexMlMinM2));
+ const min=Math.min(...rows.map(x=>x.result.estimatedOxygenDeliveryIndexMlMinM2));
+ const points=rows.map((x,i)=>{const px=35+i*(570/Math.max(1,rows.length-1));const py=155-(x.result.estimatedOxygenDeliveryIndexMlMinM2-min)/(max-min||1)*115;return px+','+py}).join(' ');
+ $('sweepOutput').innerHTML='<div class="sweep-chart"><div class="chart-caption">DO₂ INDEXADA — comparação dos cenários (unidade conforme modelo)</div><svg viewBox="0 0 640 190" role="img" aria-label="Gráfico de comparação da entrega de oxigênio indexada"><line x1="35" y1="155" x2="605" y2="155" stroke="#365063"/><line x1="35" y1="25" x2="35" y2="155" stroke="#365063"/><polyline points="'+points+'" fill="none" stroke="#55d6df" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+rows.map((x,i)=>{const px=35+i*(570/Math.max(1,rows.length-1));const py=155-(x.result.estimatedOxygenDeliveryIndexMlMinM2-min)/(max-min||1)*115;return '<circle cx="'+px+'" cy="'+py+'" r="4" fill="#72dfb2"><title>'+esc(fmt(x.value,2))+' → '+esc(fmt(x.result.estimatedOxygenDeliveryIndexMlMinM2,1))+'</title></circle>'}).join('')+'</svg></div><div class="table-wrap"><table class="data-table"><thead><tr><th>CENÁRIO</th><th>VALOR VARIADO</th><th>PAM EST.</th><th>DO₂</th><th>DO₂ INDEXADA</th></tr></thead><tbody>'+rows.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+fmt(x.value,2)+'</td><td>'+fmt(x.result.estimatedMapMmHg,2)+'</td><td>'+fmt(x.result.estimatedOxygenDeliveryMlMin,1)+'</td><td>'+fmt(x.result.estimatedOxygenDeliveryIndexMlMinM2,1)+'</td></tr>').join('')+'</tbody></table></div><p class="subtle-note">Comparação calculada pelo endpoint de prévia do modelo educacional. Não representa série temporal nem comportamento fisiológico validado.</p>';
+ $('exportSweepCsv').disabled=false;$('exportSweepJson').disabled=false;
+}
+$('generateSweep').addEventListener('click',async()=>{
+ const form=$('simulationForm');if(!form.reportValidity()){toast('Revise os parâmetros-base em Nova simulação.');return}
+ const key=$('sweepParameter').value,spec=sweepSpecs[key],start=Number($('sweepStart').value),end=Number($('sweepEnd').value),count=Number($('sweepPoints').value);
+ if(!Number.isFinite(start)||!Number.isFinite(end)||start===end||!Number.isInteger(count)||count<2||count>25||start<spec.min||start>spec.max||end<spec.min||end>spec.max){toast('Intervalo inválido. Respeite os limites do modelo e use de 2 a 25 pontos.');return}
+ const btn=$('generateSweep');btn.disabled=true;btn.textContent='Calculando...';
+ try{
+  const base=formPayload(),values=Array.from({length:count},(_,i)=>start+(end-start)*i/(count-1));
+  const inputs=values.map(value=>({...base,[key]:key==='arterialSaturation'?value/100:value}));
+  const results=await Promise.all(inputs.map(async(input,i)=>({value:values[i],input,result:await request('/api/v1/simulations/preview',{method:'POST',body:JSON.stringify(input)})})));
+  state.sweepInputs=inputs;state.sweepResults=results;renderSweep();
+  $('batchReplicates').value=String(count);toast(count+' cenários calculados. Você pode enviá-los como lote ao grid.');
+ }catch(e){toast('Falha ao calcular a varredura: '+e.message)}
+ finally{btn.disabled=false;btn.textContent='Gerar cenários'}
+});
+$('exportSweepCsv').addEventListener('click',()=>{
+ const rows=state.sweepResults;if(!rows.length)return;
+ const headers=['parameter_value','estimated_map_mmhg','oxygen_delivery_ml_min','oxygen_delivery_index_ml_min_m2','temperature_c'];
+ const csv=[headers.join(','),...rows.map(x=>[x.value,x.result.estimatedMapMmHg,x.result.estimatedOxygenDeliveryMlMin,x.result.estimatedOxygenDeliveryIndexMlMinM2,x.input.temperatureC].join(','))].join('\\n');
+ downloadText('perfusionlab-parameter-sweep.csv',csv,'text/csv;charset=utf-8');
+});
+$('exportSweepJson').addEventListener('click',()=>{if(state.sweepResults.length)downloadText('perfusionlab-parameter-sweep.json',JSON.stringify({model:'educational',parameter:$('sweepParameter').value,results:state.sweepResults},null,2),'application/json')});
+\n$('previewButton').addEventListener('click',async()=>{const form=$('simulationForm');if(!form.reportValidity())return;try{$('previewButton').disabled=true;$('resultState').textContent='CALCULANDO...';const r=await request('/api/v1/simulations/preview',{method:'POST',body:JSON.stringify(formPayload())});renderPreview(r)}catch(e){toast('Não foi possível calcular a prévia: '+e.message);$('resultState').textContent='ERRO'}finally{$('previewButton').disabled=false}});
 $('simulationForm').addEventListener('submit',async e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const btn=e.submitter;try{btn.disabled=true;btn.textContent='Enviando...';const job=await request('/api/v1/simulations/jobs',{method:'POST',body:JSON.stringify(formPayload())});toast('Simulação enviada · '+String(job.jobId).slice(0,8));watchJob(job.jobId);go('jobs');await loadJobs();await showJob(job.jobId)}catch(err){toast('Falha ao enviar simulação: '+err.message)}finally{btn.disabled=false;btn.textContent='▶ Enviar para o grid'}});
 function watchJob(id){if(state.pollTimer)clearInterval(state.pollTimer);let attempts=0;state.pollTimer=setInterval(async()=>{attempts++;try{const j=await request('/api/v1/simulations/jobs/'+encodeURIComponent(id));if(state.activeJob?.jobId===id){state.activeJob=j;$('jobDetailContent').innerHTML='<div class="detail-kv"><div><small>JOB ID</small><strong class="mono">'+esc(j.jobId)+'</strong></div><div><small>ESTADO</small><strong>'+statusBadge(j.state)+'</strong></div><div><small>SUBMETIDO</small><strong>'+esc(date(j.submittedAt))+'</strong></div><div><small>INICIADO</small><strong>'+esc(date(j.startedAt))+'</strong></div><div><small>CONCLUÍDO</small><strong>'+esc(date(j.completedAt))+'</strong></div><div><small>ERRO</small><strong>'+esc(j.error||'—')+'</strong></div></div>'+(j.result?renderResult(j.result):'<p class="muted">Resultado ainda não disponível.</p>')}if(['SUCCEEDED','FAILED'].includes(j.state)||attempts>=90){clearInterval(state.pollTimer);state.pollTimer=null;await loadJobs();await loadOverview()}}catch{if(attempts>=90){clearInterval(state.pollTimer);state.pollTimer=null}}},2000)}
 $('refreshButton').addEventListener('click',()=>refreshAll());$('jobsRefresh').addEventListener('click',loadJobs);$('clusterRefresh').addEventListener('click',loadCluster);
