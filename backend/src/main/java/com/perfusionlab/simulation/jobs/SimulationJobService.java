@@ -3,9 +3,11 @@ package com.perfusionlab.simulation.jobs;
 import com.perfusionlab.simulation.api.SimulationPreviewRequest;
 import java.util.UUID;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "perfusion.role", havingValue = "api", matchIfMissing = true)
 public class SimulationJobService {
     public static final String EXCHANGE = "perfusionlab.simulation";
     public static final String ROUTING_KEY = "simulation.execute";
@@ -19,7 +21,7 @@ public class SimulationJobService {
 
     public SimulationJobStatus submit(SimulationPreviewRequest input) {
         UUID id = UUID.randomUUID();
-        SimulationJobStatus job = store.create(id);
+        SimulationJobStatus job = store.create(id, input);
         try {
             rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, new SimulationJobMessage(id, input));
             return job;
