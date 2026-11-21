@@ -62,6 +62,60 @@ services:
       dockerfile: Dockerfile
     environment:
       PERFUSION_ROLE: worker
+      PERFUSION_WORKER_PROFILE: GENERAL
+      WORKER_CPU_CORES: 1
+      WORKER_MEMORY_MB: 2048
+      WORKER_SLOTS: 1
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      DATABASE_URL: jdbc:postgresql://postgres:5432/perfusionlab
+      DB_USER: perfusionlab
+      DB_PASSWORD: perfusionlab_dev
+      DB_POOL_SIZE: 5
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: perfusionlab
+      RABBITMQ_PASSWORD: perfusionlab_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-memory:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      PERFUSION_ROLE: worker
+      PERFUSION_WORKER_PROFILE: MEMORY
+      WORKER_CPU_CORES: 2
+      WORKER_MEMORY_MB: 8192
+      WORKER_SLOTS: 1
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      DATABASE_URL: jdbc:postgresql://postgres:5432/perfusionlab
+      DB_USER: perfusionlab
+      DB_PASSWORD: perfusionlab_dev
+      DB_POOL_SIZE: 5
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: perfusionlab
+      RABBITMQ_PASSWORD: perfusionlab_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-compute:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      PERFUSION_ROLE: worker
+      PERFUSION_WORKER_PROFILE: COMPUTE
+      WORKER_CPU_CORES: 4
+      WORKER_MEMORY_MB: 4096
+      WORKER_SLOTS: 2
       SPRING_MAIN_WEB_APPLICATION_TYPE: none
       DATABASE_URL: jdbc:postgresql://postgres:5432/perfusionlab
       DB_USER: perfusionlab
