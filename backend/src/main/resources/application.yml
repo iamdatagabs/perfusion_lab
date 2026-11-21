@@ -32,6 +32,7 @@ perfusion:
   worker:
     heartbeat-ms: ${WORKER_HEARTBEAT_MS:30000}
     recovery-ms: ${WORKER_RECOVERY_MS:15000}
+    drain-reconcile-ms: ${WORKER_DRAIN_RECONCILE_MS:5000}
     profile: ${PERFUSION_WORKER_PROFILE:GENERAL}
     node-id: ${WORKER_NODE_ID:}
     cpu-cores: ${WORKER_CPU_CORES:1}
