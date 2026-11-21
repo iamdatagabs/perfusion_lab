@@ -26,6 +26,14 @@ perfusion:
   worker:
     heartbeat-ms: ${WORKER_HEARTBEAT_MS:30000}
     recovery-ms: ${WORKER_RECOVERY_MS:15000}
+    profile: ${PERFUSION_WORKER_PROFILE:GENERAL}
+    cpu-cores: ${WORKER_CPU_CORES:1}
+    memory-mb: ${WORKER_MEMORY_MB:2048}
+    slots: ${WORKER_SLOTS:1}
+
+spring.rabbitmq.listener.simple:
+  concurrency: ${WORKER_SLOTS:1}
+  max-concurrency: ${WORKER_SLOTS:1}
 
 server:
   port: ${PORT:8080}
