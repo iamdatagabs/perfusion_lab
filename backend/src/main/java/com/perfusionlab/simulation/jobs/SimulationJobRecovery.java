@@ -60,7 +60,7 @@ public class SimulationJobRecovery {
                           )
                         FOR UPDATE SKIP LOCKED
                     )
-                    RETURNING j.job_id, j.input_json, j.execution_profile
+                    RETURNING j.job_id, j.input_json, j.execution_profile, j.correlation_id, j.traceparent
                 ), retry_payloads AS (
                     SELECT job_id, input_json, execution_profile, correlation_id, traceparent FROM retryable
                     UNION ALL
