@@ -40,10 +40,12 @@ public class ExperimentBatchService {
         request.simulations().forEach(input -> {
             UUID jobId = UUID.randomUUID();
             WorkerNodeAssignment assignment = nodes.reserveNode(decision.profile()).orElse(null);
-            jobs.create(jobId, input, batchId, decision.profile(), assignment);
-            outbox.enqueue(batchId, traceContext.capture(new SimulationJobMessage(jobId, input, decision.profile(),
+            SimulationJobMessage message = traceContext.capture(new SimulationJobMessage(jobId, input, decision.profile(),
                     assignment == null ? null : assignment.nodeId(),
-                    assignment == null ? null : assignment.incarnationId()), MDC.get("correlationId")));
+                    assignment == null ? null : assignment.incarnationId()), MDC.get("correlationId"));
+            jobs.create(jobId, input, batchId, decision.profile(), assignment,
+                    message.correlationId(), message.traceparent());
+            outbox.enqueue(batchId, message);
         });
         return batches.find(batchId).orElseThrow();
     }
