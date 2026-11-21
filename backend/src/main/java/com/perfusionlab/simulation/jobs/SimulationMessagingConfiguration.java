@@ -1,6 +1,7 @@
 package com.perfusionlab.simulation.jobs;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -34,19 +35,19 @@ public class SimulationMessagingConfiguration {
     }
 
     @Bean
-    Binding generalSimulationBinding(Queue generalSimulationQueue, DirectExchange simulationExchange) {
+    Binding generalSimulationBinding(@Qualifier("generalSimulationQueue") Queue generalSimulationQueue, DirectExchange simulationExchange) {
         return BindingBuilder.bind(generalSimulationQueue).to(simulationExchange)
                 .with(ExecutionProfile.GENERAL.routingKey());
     }
 
     @Bean
-    Binding memorySimulationBinding(Queue memorySimulationQueue, DirectExchange simulationExchange) {
+    Binding memorySimulationBinding(@Qualifier("memorySimulationQueue") Queue memorySimulationQueue, DirectExchange simulationExchange) {
         return BindingBuilder.bind(memorySimulationQueue).to(simulationExchange)
                 .with(ExecutionProfile.MEMORY.routingKey());
     }
 
     @Bean
-    Binding computeSimulationBinding(Queue computeSimulationQueue, DirectExchange simulationExchange) {
+    Binding computeSimulationBinding(@Qualifier("computeSimulationQueue") Queue computeSimulationQueue, DirectExchange simulationExchange) {
         return BindingBuilder.bind(computeSimulationQueue).to(simulationExchange)
                 .with(ExecutionProfile.COMPUTE.routingKey());
     }
