@@ -20,8 +20,8 @@ public class WorkerNodeStore {
 
     /**
      * Locks one eligible node until the caller's transaction commits. The
-     * caller must insert the assigned job in that same transaction: the job
-     * row itself is the durable slot reservation.
+     * caller inserts the assigned job in that same transaction; the job row
+     * itself is the durable slot reservation.
      */
     public Optional<WorkerNodeAssignment> reserveNode(ExecutionProfile profile) {
         try {
@@ -34,16 +34,16 @@ public class WorkerNodeStore {
                       AND n.slots > (
                           SELECT COUNT(*)
                           FROM simulation_jobs j
-                          WHERE j.target_node_id = n.node_id
-                            AND j.target_incarnation_id = n.incarnation_id
-                            AND j.state IN ('QUEUED', 'RUNNING')
+                          WHERE (j.state = 'RUNNING' AND j.worker_id = n.worker_id)
+                             OR (j.state = 'QUEUED' AND j.target_node_id = n.node_id
+                                 AND j.target_incarnation_id = n.incarnation_id)
                       )
                     ORDER BY (
                         SELECT COUNT(*)
                         FROM simulation_jobs j
-                        WHERE j.target_node_id = n.node_id
-                          AND j.target_incarnation_id = n.incarnation_id
-                          AND j.state IN ('QUEUED', 'RUNNING')
+                        WHERE (j.state = 'RUNNING' AND j.worker_id = n.worker_id)
+                           OR (j.state = 'QUEUED' AND j.target_node_id = n.node_id
+                               AND j.target_incarnation_id = n.incarnation_id)
                     ) ASC,
                     COALESCE(n.system_cpu_load, 0.0) ASC,
                     n.heartbeat_at DESC
@@ -85,9 +85,15 @@ public class WorkerNodeStore {
                        n.execution_profile, n.hostname, n.cpu_cores, n.memory_mb,
                        n.slots, n.started_at, n.heartbeat_at, n.software_version,
                        n.system_cpu_load, n.jvm_heap_used_mb, n.jvm_heap_max_mb,
-                       COUNT(j.job_id) FILTER (WHERE j.state = 'RUNNING') AS active_jobs
+                       COUNT(j.job_id) FILTER (WHERE j.state = 'RUNNING'
+                           AND j.worker_id = n.worker_id) AS active_jobs,
+                       COUNT(j.job_id) FILTER (WHERE j.state = 'QUEUED'
+                           AND j.target_node_id = n.node_id
+                           AND j.target_incarnation_id = n.incarnation_id) AS reserved_jobs
                 FROM worker_nodes n
-                LEFT JOIN simulation_jobs j ON j.worker_id = n.worker_id
+                LEFT JOIN simulation_jobs j
+                  ON (j.worker_id = n.worker_id OR
+                      (j.target_node_id = n.node_id AND j.target_incarnation_id = n.incarnation_id))
                 WHERE n.heartbeat_at >= now() - interval '2 minutes'
                   AND n.node_status = 'READY'
                 GROUP BY n.worker_id
@@ -131,11 +137,12 @@ public class WorkerNodeStore {
 
     private WorkerNodeStatus map(ResultSet rs, int rowNum) throws SQLException {
         int slots = rs.getInt("slots"), active = rs.getInt("active_jobs");
+        int reserved = rs.getInt("reserved_jobs");
         return new WorkerNodeStatus(rs.getString("worker_id"), rs.getString("node_id"),
                 rs.getObject("incarnation_id", UUID.class), rs.getString("node_status"),
                 ExecutionProfile.valueOf(rs.getString("execution_profile")),
                 rs.getString("hostname"), rs.getInt("cpu_cores"), rs.getInt("memory_mb"),
-                slots, active, Math.max(0, slots - active),
+                slots, active, Math.max(0, slots - active - reserved),
                 rs.getTimestamp("started_at").toInstant(), rs.getTimestamp("heartbeat_at").toInstant(),
                 rs.getString("software_version"), nullableDouble(rs, "system_cpu_load"),
                 rs.getLong("jvm_heap_used_mb"), rs.getLong("jvm_heap_max_mb"));
