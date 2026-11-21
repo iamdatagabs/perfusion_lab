@@ -2,7 +2,7 @@ const API_KEY='perfusionlab.apiBase';
 const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'': '';
 let apiBase=(localStorage.getItem(API_KEY)??defaultBase()).replace(/\/$/,'');
 const $=id=>document.getElementById(id);
-const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[],timeline:null,multivariateTimeline:null};
+const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[],timeline:null,multivariateTimeline:null,mathReference:null};
 const fmt=(v,d=1)=>v==null?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const date=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -72,6 +72,48 @@ function renderCluster(){const active=state.nodes.filter(n=>n.nodeStatus==='READ
 async function loadOverview(){await Promise.all([loadJobs(),loadCluster()]);const pending=state.jobs.filter(j=>['QUEUED','RUNNING'].includes(j.state)).length;$('statJobs').textContent=state.jobs.length;$('statRunning').textContent=pending;$('statNodes').textContent=state.nodes.filter(n=>n.nodeStatus==='READY').length;$('statSlots').textContent=state.capacity.reduce((a,c)=>a+c.availableSlots,0)}
 function formPayload(){const f=new FormData($('simulationForm'));return {pumpFlowLMin:Number(f.get('pumpFlowLMin')),hemoglobinGdL:Number(f.get('hemoglobinGdL')),arterialSaturation:Number(f.get('arterialSaturationPct'))/100,systemicVascularResistance:Number(f.get('systemicVascularResistance')),bodySurfaceAreaM2:Number(f.get('bodySurfaceAreaM2')),temperatureC:Number(f.get('temperatureC'))}}
 function renderPreview(r){$('resultState').textContent='PRÉVIA CALCULADA';$('previewResults').className='';$('previewResults').innerHTML=renderResult(r)+'<p class="subtle-note">Modelo '+esc(r.modelVersion)+' · '+esc(date(r.generatedAt))+'</p>'}
+
+function calculateMathMetrics(input){
+ const map=input.pumpFlowLMin*input.systemicVascularResistance/80;
+ const do2=input.pumpFlowLMin*10*input.hemoglobinGdL*1.34*input.arterialSaturation;
+ return {map,do2,do2i:do2/input.bodySurfaceAreaM2};
+}
+function setMathReference(){
+ if(!$('simulationForm').checkValidity()){toast('Corrija os parâmetros antes de definir a referência.');return}
+ state.mathReference=calculateMathMetrics(formPayload());
+ $('mathReferenceState').textContent='Referência atualizada · '+new Date().toLocaleTimeString('pt-BR');
+ updateMathFlag();
+}
+function updateMathFlag(){
+ const panel=$('mathFlag');
+ if(!$('simulationForm').checkValidity()||!state.mathReference){
+  panel.className='math-flag pending';$('mathFlagTitle').textContent='Aguardando parâmetros válidos';
+  $('mathFlagDescription').textContent='Preencha os campos para calcular o indicador.';$('mathFlagScore').textContent='—';$('mathFlagDetails').textContent='—';return;
+ }
+ const stableLimit=Number($('mathStableLimit').value),criticalLimit=Number($('mathCriticalLimit').value);
+ if(!Number.isFinite(stableLimit)||!Number.isFinite(criticalLimit)||stableLimit<0||criticalLimit<=stableLimit){
+  panel.className='math-flag pending';$('mathFlagTitle').textContent='Revise as faixas matemáticas';
+  $('mathFlagDescription').textContent='O limite crítico deve ser maior que o limite estável.';$('mathFlagScore').textContent='—';$('mathFlagDetails').textContent='—';return;
+ }
+ const current=calculateMathMetrics(formPayload()),reference=state.mathReference;
+ const deviations=[['PAM',current.map,reference.map],['DO₂',current.do2,reference.do2],['DO₂i',current.do2i,reference.do2i]]
+  .map(([name,value,base])=>({name,pct:Math.abs((value-base)/Math.max(Math.abs(base),1e-9))*100}));
+ const score=Math.sqrt(deviations.reduce((sum,item)=>sum+item.pct**2,0)/deviations.length);
+ const status=score<=stableLimit?'stable':score>criticalLimit?'critical':'unstable';
+ const labels={stable:'ESTÁVEL · FAIXA MATEMÁTICA',unstable:'INSTÁVEL · DESVIO MATEMÁTICO',critical:'CRÍTICO · DESVIO MATEMÁTICO'};
+ const descriptions={stable:'Resultados próximos da referência definida.',unstable:'Resultados com afastamento intermediário da referência.',critical:'Resultados com afastamento elevado da referência.'};
+ panel.className='math-flag '+status;
+ $('mathFlagTitle').textContent=labels[status];$('mathFlagDescription').textContent=descriptions[status];
+ $('mathFlagScore').textContent=fmt(score,1)+'%';
+ $('mathFlagDetails').textContent=deviations.map(item=>item.name+' '+fmt(item.pct,1)+'%').join(' · ');
+ $('mathFlagThresholds').textContent='Estável ≤ '+fmt(stableLimit,1)+'% · Crítico > '+fmt(criticalLimit,1)+'%';
+}
+$('setMathReference').addEventListener('click',setMathReference);
+$('simulationForm').querySelectorAll('input[type=number]').forEach(input=>input.addEventListener('input',updateMathFlag));
+$('mathStableLimit').addEventListener('input',updateMathFlag);
+$('mathCriticalLimit').addEventListener('input',updateMathFlag);
+setMathReference();
+
 
 const sweepSpecs={
  pumpFlowLMin:{min:.1,max:10,step:1,label:'Fluxo de bomba (L/min)'},
