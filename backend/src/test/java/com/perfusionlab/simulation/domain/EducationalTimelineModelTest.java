@@ -10,8 +10,8 @@ class EducationalTimelineModelTest {
   var r=model.evaluate(new SimulationTimelineRequest(baseline,"pumpFlowLMin",6.0,60,15));
   assertEquals(5,r.points().size()); assertEquals(0,r.points().get(0).elapsedSeconds());
   assertEquals(4.0,r.points().get(0).parameterValue(),.001); assertEquals(6.0,r.points().get(4).parameterValue(),.001);
-  assertEquals(60,r.points().get(4).elapsedSeconds()); assertEquals(4.0,r.points().get(0).estimatedMapMmHg(),.01);
-  assertEquals(6.0,r.points().get(4).estimatedMapMmHg(),.01);
+  assertEquals(60,r.points().get(4).elapsedSeconds()); assertEquals(60.0,r.points().get(0).estimatedMapMmHg(),.01);
+  assertEquals(90.0,r.points().get(4).estimatedMapMmHg(),.01);
  }
  @Test void appendsExactEndTimeWhenStepDoesNotDivideDuration(){
   var r=model.evaluate(new SimulationTimelineRequest(baseline,"pumpFlowLMin",5.0,50,20));
