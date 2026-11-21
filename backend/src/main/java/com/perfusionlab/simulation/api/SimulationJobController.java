@@ -6,12 +6,14 @@ import com.perfusionlab.simulation.jobs.SimulationJobStore;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/simulations/jobs")
 @CrossOrigin(origins = "*")
+@ConditionalOnProperty(name = "perfusion.role", havingValue = "api", matchIfMissing = true)
 public class SimulationJobController {
     private final SimulationJobService service;
     private final SimulationJobStore store;

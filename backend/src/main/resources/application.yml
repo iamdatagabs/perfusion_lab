@@ -1,11 +1,22 @@
 spring:
   application:
-    name: perfusionlab-api
+    name: perfusionlab
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/perfusionlab}
+    username: ${DB_USER:perfusionlab}
+    password: ${DB_PASSWORD:perfusionlab_dev}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+  flyway:
+    enabled: true
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:perfusionlab}
     password: ${RABBITMQ_PASSWORD:perfusionlab_dev}
+
+perfusion:
+  role: ${PERFUSION_ROLE:api}
 
 server:
   port: ${PORT:8080}

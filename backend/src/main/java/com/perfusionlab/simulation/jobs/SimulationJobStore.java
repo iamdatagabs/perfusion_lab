@@ -1,54 +1,96 @@
 package com.perfusionlab.simulation.jobs;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.perfusionlab.simulation.api.SimulationPreviewRequest;
+import com.perfusionlab.simulation.api.SimulationPreviewResponse;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SimulationJobStore {
-    private final Map<UUID, SimulationJobStatus> jobs = new ConcurrentHashMap<>();
+    private final JdbcTemplate jdbc;
+    private final ObjectMapper mapper;
+    private final RowMapper<SimulationJobStatus> jobRowMapper = this::mapRow;
 
-    public SimulationJobStatus create(UUID id) {
-        var job = new SimulationJobStatus(id, SimulationJobStatus.State.QUEUED,
-                Instant.now(), null, null, null, null);
-        jobs.put(id, job);
-        return job;
+    public SimulationJobStore(JdbcTemplate jdbc, ObjectMapper mapper) {
+        this.jdbc = jdbc;
+        this.mapper = mapper;
+    }
+
+    public SimulationJobStatus create(UUID id, SimulationPreviewRequest input) {
+        Instant submittedAt = Instant.now();
+        jdbc.update("""
+                INSERT INTO simulation_jobs (job_id, state, submitted_at, input_json)
+                VALUES (?, 'QUEUED', ?, ?::jsonb)
+                """, id, Timestamp.from(submittedAt), toJson(input));
+        return new SimulationJobStatus(id, SimulationJobStatus.State.QUEUED,
+                submittedAt, null, null, null, null);
     }
 
     public Optional<SimulationJobStatus> find(UUID id) {
-        return Optional.ofNullable(jobs.get(id));
+        return jdbc.query("SELECT * FROM simulation_jobs WHERE job_id = ?",
+                jobRowMapper, id).stream().findFirst();
     }
 
-    public void markRunning(UUID id) {
-        update(id, new SimulationJobStatus(id, SimulationJobStatus.State.RUNNING,
-                submittedAt(id), Instant.now(), null, null, null));
+    public boolean markRunning(UUID id) {
+        return jdbc.update("""
+                UPDATE simulation_jobs
+                SET state = 'RUNNING', started_at = ?
+                WHERE job_id = ? AND state = 'QUEUED'
+                """, Timestamp.from(Instant.now()), id) == 1;
     }
 
-    public void markSucceeded(UUID id, com.perfusionlab.simulation.api.SimulationPreviewResponse result) {
-        update(id, new SimulationJobStatus(id, SimulationJobStatus.State.SUCCEEDED,
-                submittedAt(id), startedAt(id), Instant.now(), result, null));
+    public void markSucceeded(UUID id, SimulationPreviewResponse result) {
+        jdbc.update("""
+                UPDATE simulation_jobs
+                SET state = 'SUCCEEDED', completed_at = ?, result_json = ?::jsonb, error = NULL
+                WHERE job_id = ? AND state = 'RUNNING'
+                """, Timestamp.from(Instant.now()), toJson(result), id);
     }
 
     public void markFailed(UUID id, Exception error) {
-        update(id, new SimulationJobStatus(id, SimulationJobStatus.State.FAILED,
-                submittedAt(id), startedAt(id), Instant.now(), null,
-                error.getClass().getSimpleName()));
+        jdbc.update("""
+                UPDATE simulation_jobs
+                SET state = 'FAILED', completed_at = ?, error = ?
+                WHERE job_id = ? AND state IN ('QUEUED', 'RUNNING')
+                """, Timestamp.from(Instant.now()), error.getClass().getSimpleName(), id);
     }
 
-    private Instant submittedAt(UUID id) {
-        var current = jobs.get(id);
-        return current == null ? Instant.now() : current.submittedAt();
+    private String toJson(Object value) {
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Could not serialize simulation job data", exception);
+        }
     }
 
-    private Instant startedAt(UUID id) {
-        var current = jobs.get(id);
-        return current == null ? null : current.startedAt();
+    private SimulationJobStatus mapRow(ResultSet rs, int rowNum) throws SQLException {
+        SimulationJobStatus.State state = SimulationJobStatus.State.valueOf(rs.getString("state"));
+        String resultJson = rs.getString("result_json");
+        SimulationPreviewResponse result = null;
+        if (resultJson != null) {
+            try {
+                result = mapper.readValue(resultJson, SimulationPreviewResponse.class);
+            } catch (JsonProcessingException exception) {
+                throw new SQLException("Could not deserialize simulation result", exception);
+            }
+        }
+        return new SimulationJobStatus(
+                rs.getObject("job_id", UUID.class), state,
+                instant(rs.getTimestamp("submitted_at")),
+                instant(rs.getTimestamp("started_at")),
+                instant(rs.getTimestamp("completed_at")), result, rs.getString("error"));
     }
 
-    private void update(UUID id, SimulationJobStatus status) {
-        jobs.computeIfPresent(id, (key, current) -> status);
+    private Instant instant(Timestamp value) {
+        return value == null ? null : value.toInstant();
     }
 }
