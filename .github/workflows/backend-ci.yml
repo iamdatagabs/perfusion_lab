@@ -11,6 +11,9 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - "frontend/**"
+      - "infra/**"
+      - "scripts/chaos_smoke.sh"
       - ".github/workflows/backend-ci.yml"
 
 jobs:
