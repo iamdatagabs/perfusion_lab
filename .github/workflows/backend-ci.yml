@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - "backend/**"
+      - "frontend/**"
+      - "infra/**"
+      - "scripts/chaos_smoke.sh"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     paths:
@@ -15,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate web console JavaScript
+        run: node --check frontend/app.js
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
