@@ -72,6 +72,6 @@ for attempt in $(seq 1 90); do
   sleep 2
 done
 
-"${COMPOSE[@]}" logs --no-color --tail=150 api worker worker-memory worker-compute >&2 || true
+"${COMPOSE[@]}" logs --no-color --tail=150 api worker >&2 || true
 echo "Timed out waiting for job $JOB_ID" >&2
 exit 1
