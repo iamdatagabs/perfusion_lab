@@ -44,7 +44,7 @@ class SimulationJobStoreTest {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         SimulationJobStore store = new SimulationJobStore(jdbc, new ObjectMapper());
         UUID id = UUID.randomUUID();
-        var result = new com.perfusionlab.simulation.api.SimulationPreviewResponse(72.0, 630.34, 331.76);
+        var result = new com.perfusionlab.simulation.api.SimulationPreviewResponse("test-model", java.time.Instant.now(), 72.0, 630.34, 331.76, 4.8, 35.5, "test");
 
         store.markSucceeded(id, "worker-current", result);
 
