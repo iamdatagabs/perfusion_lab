@@ -2,13 +2,15 @@
 
 ## Runtime topology
 
-The API and worker are separate runtime roles built from the same Java 21 / Spring Boot artifact. They communicate through RabbitMQ and share PostgreSQL as the durable job registry.
+The API and worker are separate runtime roles built from the same Java 21 / Spring Boot artifact. They communicate through RabbitMQ and share PostgreSQL as the durable job registry and outbox.
 
 ~~~mermaid
 flowchart LR
   Client[Research Console / API Client] --> API[API container]
   API --> DB[(PostgreSQL)]
-  API -->|publish JSON job| EX[RabbitMQ direct exchange]
+  API --> O[(Transactional Outbox)]
+  O --> PUB[Outbox publisher]
+  PUB -->|confirmed publish| EX[RabbitMQ exchange]
   EX --> Q[Durable simulation queue]
   Q --> W1[Worker replica 1]
   Q --> W2[Worker replica 2]
@@ -16,57 +18,51 @@ flowchart LR
   W1 --> DB
   W2 --> DB
   WN --> DB
+  API -->|lease recovery| DB
   API -->|poll job state| DB
 ~~~
 
-Set PERFUSION_ROLE=api for the HTTP process and PERFUSION_ROLE=worker for consumers. Worker containers use SPRING_MAIN_WEB_APPLICATION_TYPE=none. Compose starts one worker by default; --scale worker=N starts N competing consumers.
+Set PERFUSION_ROLE=api for the HTTP process and PERFUSION_ROLE=worker for consumers. The API role owns outbox publishing and stale-lease recovery. Worker containers use SPRING_MAIN_WEB_APPLICATION_TYPE=none.
 
-## Job lifecycle and concurrency
+## Transactional outbox
 
-1. API validates the request and inserts a QUEUED row containing the immutable input JSON and submission timestamp.
-2. API publishes a JSON message to the durable RabbitMQ queue.
-3. A worker atomically claims the job with UPDATE ... WHERE state = 'QUEUED'. Only one consumer can change that row to RUNNING.
-4. The worker executes the selected model version and persists SUCCEEDED plus result JSON, or FAILED plus a sanitized error class.
-5. API reads current state and result from PostgreSQL.
+1. API inserts a QUEUED simulation_jobs row and a SimulationJobRequested row in outbox_events within one PostgreSQL transaction.
+2. The scheduled publisher claims one eligible event using FOR UPDATE SKIP LOCKED, setting a short processing lease.
+3. It publishes with RabbitMQ correlated publisher confirms and mandatory routing.
+4. Only a positive broker confirmation and no returned message allow the event to become PUBLISHED.
+5. On failure, the event returns to PENDING with exponential backoff; after eight attempts it becomes DEAD for operator review.
+
+This closes the database-commit/message-publish gap. It does not provide exactly-once delivery: a process can receive a positive broker confirmation and crash before committing PUBLISHED. That event can be sent again after its outbox lock expires. Consumers therefore must be idempotent.
+
+## Job lifecycle, leases and recovery
 
 States: QUEUED → RUNNING → SUCCEEDED | FAILED.
 
-The compare-and-set claim prevents duplicate deliveries from concurrently executing a job. It does not provide exactly-once execution or recovery after worker loss.
+A worker claims a job using an atomic UPDATE ... WHERE state = 'QUEUED', records its worker UUID, increments attempt_count, and sets a two-minute lease. A heartbeat every 30 seconds extends the lease for jobs owned by that worker. Completion is fenced by worker_id, so a worker whose lease was reclaimed cannot overwrite a newer attempt.
+
+The API role scans expired RUNNING leases every 15 seconds. It requeues attempts below three and inserts a new outbox event in the same transaction; jobs that exhaust three expired execution attempts become FAILED. Recovery is safe across multiple API replicas through PostgreSQL row locking with SKIP LOCKED.
+
+The heartbeat is process-level rather than tied to an individual task. A later iteration should use per-job heartbeat and cancellation to guard long-running or paused tasks.
 
 ## Persistence model
 
-simulation_jobs stores:
-- job_id: UUID primary key.
-- state: constrained lifecycle state.
-- submitted_at, started_at, completed_at: UTC timestamps.
-- input_json: submitted input for traceability.
-- result_json: output payload on success.
-- error: sanitized exception class on failure.
+simulation_jobs stores job input, output, state, timestamps, worker identity, heartbeat, lease expiry and execution attempt count.
 
-Flyway manages the schema. Both API and worker use the same PostgreSQL database.
+outbox_events stores event payload, aggregate ID, publication state, attempt count, retry schedule, lock expiry, publication timestamp and sanitized last error.
+
+Flyway manages all schema changes.
 
 ## Horizontal worker pool and benchmark
 
-Workers are competing consumers on one durable queue. This is a useful first horizontal-scaling experiment, but it is not yet a grid scheduler. The benchmark helper at scripts/benchmark_workers.py submits a fixed workload and reports throughput, p50/p95 completion latency and terminal job counts.
+Workers are competing consumers on one durable queue. This is a useful horizontal-scaling experiment, but it is not yet a grid scheduler. scripts/benchmark_workers.py reports throughput, p50/p95 completion latency and terminal job counts. Record CPU, memory, database and broker utilization separately before drawing scaling conclusions.
 
-Run with worker pool sizes 1, 2, 4 and 8 on the same host and compare repeated runs. Record CPU, memory, database and broker utilization separately before drawing scaling conclusions.
+## Remaining work
 
-## Reliability gaps to close
-
-- **Transactional outbox:** currently, job insertion and broker publication are separate operations. A crash between them may strand a QUEUED row.
-- **Leases and heartbeats:** a worker crash after claiming a job can leave it RUNNING; no stale-job reaper exists.
-- **Retry and dead-letter policy:** not yet configured. The current worker records model exceptions as FAILED.
-- **Observability:** job-level traces, worker identity, queue age and structured metrics need a later increment.
-- **Security:** local Compose credentials are development-only.
-
-## Next distributed-computing increment
-
-1. Add transactional outbox and publisher confirms.
-2. Add worker leases, heartbeat, timeout and stale-job recovery.
-3. Add bounded retry and dead-letter queue.
-4. Add experiment batches, model version pinning, random seeds and checksums.
-5. Add a scheduler for resource-aware placement across local or cloud nodes.
-6. Benchmark 1, 2, 4 and 8 workers and report speedup, efficiency, throughput and tail latency.
+- Add a dedicated broker dead-letter queue and operator tooling to inspect/replay DEAD outbox events.
+- Add per-job heartbeat, cancellation and execution fencing for long-running tasks.
+- Add distributed tracing, structured logs, alerting and queue-age metrics.
+- Add experiment batches, model version pinning, random seeds and checksums.
+- Add resource-aware scheduling across local or cloud nodes.
 
 ## Bounded contexts
 
