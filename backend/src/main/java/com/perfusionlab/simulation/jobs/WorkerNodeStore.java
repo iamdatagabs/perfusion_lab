@@ -37,20 +37,25 @@ public class WorkerNodeStore {
 
     public List<WorkerNodeStatus> activeNodes() {
         return jdbc.query("""
-                SELECT worker_id, execution_profile, hostname, cpu_cores, memory_mb, slots,
-                       started_at, heartbeat_at, software_version
-                FROM worker_nodes
-                WHERE heartbeat_at >= now() - interval '2 minutes'
-                ORDER BY execution_profile, hostname
+                SELECT n.worker_id, n.execution_profile, n.hostname, n.cpu_cores,
+                       n.memory_mb, n.slots, n.started_at, n.heartbeat_at, n.software_version,
+                       COUNT(j.job_id) FILTER (WHERE j.state = 'RUNNING') AS active_jobs
+                FROM worker_nodes n
+                LEFT JOIN simulation_jobs j ON j.worker_id = n.worker_id
+                WHERE n.heartbeat_at >= now() - interval '2 minutes'
+                GROUP BY n.worker_id
+                ORDER BY n.execution_profile, n.hostname
                 """, this::map);
     }
 
     private WorkerNodeStatus map(ResultSet rs, int rowNum) throws SQLException {
+        int slots = rs.getInt("slots");
+        int active = rs.getInt("active_jobs");
         return new WorkerNodeStatus(
                 rs.getString("worker_id"),
                 ExecutionProfile.valueOf(rs.getString("execution_profile")),
                 rs.getString("hostname"), rs.getInt("cpu_cores"),
-                rs.getInt("memory_mb"), rs.getInt("slots"),
+                rs.getInt("memory_mb"), slots, active, Math.max(0, slots - active),
                 rs.getTimestamp("started_at").toInstant(),
                 rs.getTimestamp("heartbeat_at").toInstant(),
                 rs.getString("software_version"));
