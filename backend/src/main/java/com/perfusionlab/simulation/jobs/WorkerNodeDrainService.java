@@ -2,6 +2,7 @@ package com.perfusionlab.simulation.jobs;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -10,6 +11,12 @@ public class WorkerNodeDrainService {
     private final WorkerNodeStore nodes;
 
     public WorkerNodeDrainService(WorkerNodeStore nodes) { this.nodes = nodes; }
+
+    @Scheduled(fixedDelayString = "${perfusion.worker.drain-reconcile-ms:5000}")
+    @Transactional
+    public void completeIdleDrains() {
+        nodes.completeIdleDrains();
+    }
 
     @Transactional
     public WorkerNodeDrainSnapshot drain(String nodeId, java.util.UUID incarnationId) {
