@@ -8,6 +8,7 @@ public enum ExecutionProfile {
     }
 
     public String queueName() {
-        return "perfusionlab.simulation." + name().toLowerCase();
+        return this == GENERAL ? "perfusionlab.simulation.jobs"
+                : "perfusionlab.simulation." + name().toLowerCase();
     }
 }
