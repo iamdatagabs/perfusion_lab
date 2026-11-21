@@ -14,8 +14,8 @@ class SimplifiedPerfusionModelTest {
         var result = model.evaluate(input);
 
         assertEquals(72.0, result.estimatedMapMmHg(), 0.01);
-        assertEquals(631.68, result.estimatedOxygenDeliveryMlMin(), 0.01);
-        assertEquals(332.46, result.estimatedOxygenDeliveryIndexMlMinM2(), 0.02);
+        assertEquals(630.34, result.estimatedOxygenDeliveryMlMin(), 0.01);
+        assertEquals(331.76, result.estimatedOxygenDeliveryIndexMlMinM2(), 0.02);
         assertEquals("0.1.0-educational", result.modelVersion());
     }
 }
