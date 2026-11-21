@@ -25,6 +25,7 @@ PerfusionLab is an academic software engineering project exploring computational
 - Stable logical worker identity plus a unique process incarnation UUID.
 - Durable per-node RabbitMQ queues and node-specific routing keys, provisioned before the worker advertises itself as READY.
 - Optional target node and process-incarnation fields in the message contract; the outbox publisher uses the node route when a target is present.
+- Transactional node placement with PostgreSQL row locking; queued target assignments reserve slots until execution starts or recovery clears a stale assignment.
 
 ## Architecture
 
@@ -35,7 +36,7 @@ PerfusionLab is an academic software engineering project exploring computational
 - **At-least-once delivery:** a crash after broker confirmation but before marking the outbox row published can cause duplicate delivery. Atomic worker claims and ownership fencing make repeated messages safe.
 - **Horizontal workers:** replicas compete on profile queues for untargeted messages. A targeted message is routed to the durable queue owned by one logical node.
 - **Node identity:** a stable configured `WORKER_NODE_ID` identifies the logical node; a fresh `incarnationId` fences messages addressed to a prior process instance.
-- **Grid orchestration:** profile-level AUTO scheduling remains available. Node queue provisioning and target-aware routing are infrastructure primitives; the scheduler does not yet reserve node slots or automatically select a concrete node.
+- **Grid orchestration:** AUTO selects an execution profile; the placement layer then locks an eligible node row and reserves a slot through the job's persisted target assignment.
 
 ### Job lifecycle
 
@@ -77,7 +78,7 @@ Configured CPU/RAM/slots are declarations. `systemCpuLoad` is a best-effort syst
 
 Each worker process reports a logical `nodeId` and a fresh UUID `incarnationId`. Its runtime `workerId` combines both, so a restarted process cannot reuse the previous process's lease-owner identity. The worker declares its durable node queue and binding before its first READY heartbeat. Set `WORKER_NODE_ID` explicitly when identity must survive container replacement. Node IDs are restricted to letters, digits, underscore and hyphen, with a maximum length of 80 characters.
 
-The message contract accepts optional `targetNodeId` and `targetIncarnationId`. When `targetNodeId` is set, the outbox publisher uses the node-specific routing key; otherwise it preserves the existing profile routing behavior. A worker rejects messages explicitly addressed to another node or stale process incarnation. Automatic per-node selection and atomic slot reservation are the next scheduler increment and are not claimed as implemented here.
+The message contract accepts optional `targetNodeId` and `targetIncarnationId`. When `targetNodeId` is set, the outbox publisher uses the node-specific routing key; otherwise it preserves the existing profile routing behavior. A worker acknowledges and drops messages addressed to another node or stale process incarnation, preventing obsolete durable-queue messages from being requeued indefinitely. Jobs are pinned only when a live node has free capacity.
 
 ### Benchmark
 
@@ -139,7 +140,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
 - Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
 - The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
-- AUTO currently selects a profile queue; it does not yet choose a specific node or reserve a node slot. Node-specific queues and target-aware message routing are now available as primitives for that next step. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
+- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. A future increment should add explicit node drain orchestration and metrics for reserved versus running slots. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
 - Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 
