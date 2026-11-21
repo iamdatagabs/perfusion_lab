@@ -7,6 +7,7 @@ import com.perfusionlab.simulation.api.SimulationPreviewResponse;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,18 +41,30 @@ public class SimulationJobStore {
                 jobRowMapper, id).stream().findFirst();
     }
 
-    public boolean markRunning(UUID id) {
+    public boolean markRunning(UUID id, String workerId, Duration lease) {
         return jdbc.update("""
                 UPDATE simulation_jobs
-                SET state = 'RUNNING', started_at = ?
+                SET state = 'RUNNING', started_at = now(), worker_id = ?,
+                    heartbeat_at = now(), lease_expires_at = now() + (? * interval '1 second'),
+                    attempt_count = attempt_count + 1
                 WHERE job_id = ? AND state = 'QUEUED'
-                """, Timestamp.from(Instant.now()), id) == 1;
+                """, workerId, lease.toSeconds(), id) == 1;
+    }
+
+    public void heartbeat(String workerId, Duration lease) {
+        jdbc.update("""
+                UPDATE simulation_jobs
+                SET heartbeat_at = now(),
+                    lease_expires_at = now() + (? * interval '1 second')
+                WHERE worker_id = ? AND state = 'RUNNING'
+                """, lease.toSeconds(), workerId);
     }
 
     public void markSucceeded(UUID id, SimulationPreviewResponse result) {
         jdbc.update("""
                 UPDATE simulation_jobs
-                SET state = 'SUCCEEDED', completed_at = ?, result_json = ?::jsonb, error = NULL
+                SET state = 'SUCCEEDED', completed_at = ?, result_json = ?::jsonb, error = NULL,
+                    worker_id = NULL, heartbeat_at = NULL, lease_expires_at = NULL
                 WHERE job_id = ? AND state = 'RUNNING'
                 """, Timestamp.from(Instant.now()), toJson(result), id);
     }
@@ -59,7 +72,8 @@ public class SimulationJobStore {
     public void markFailed(UUID id, Exception error) {
         jdbc.update("""
                 UPDATE simulation_jobs
-                SET state = 'FAILED', completed_at = ?, error = ?
+                SET state = 'FAILED', completed_at = ?, error = ?,
+                    worker_id = NULL, heartbeat_at = NULL, lease_expires_at = NULL
                 WHERE job_id = ? AND state IN ('QUEUED', 'RUNNING')
                 """, Timestamp.from(Instant.now()), error.getClass().getSimpleName(), id);
     }
