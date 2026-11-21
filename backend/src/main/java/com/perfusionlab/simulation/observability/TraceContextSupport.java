@@ -1,7 +1,7 @@
 package com.perfusionlab.simulation.observability;
 
 import com.perfusionlab.simulation.jobs.SimulationJobMessage;
-import io.micrometer.tracing.Propagator;
+import io.micrometer.tracing.propagation.Propagator;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import java.util.HashMap;
