@@ -4,9 +4,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import static org.mockito.Mockito.mock;
 
 class SimulationMessagingConfigurationTest {
     private final SimulationMessagingConfiguration configuration = new SimulationMessagingConfiguration();
+
+    @Test
+    void explicitlyProvidesRabbitAdminForDeadLetterMetricsAndDeclarations() {
+        ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
+
+        RabbitAdmin admin = configuration.simulationRabbitAdmin(connectionFactory);
+
+        assertNotNull(admin);
+    }
 
     @Test
     void profileQueuesDeadLetterRejectedMessages() {
