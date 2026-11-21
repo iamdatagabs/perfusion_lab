@@ -13,8 +13,8 @@ class SimulationJobRecoveryTest {
 
         new SimulationJobRecovery(jdbc).recoverExpiredLeases();
 
-        verify(jdbc).update(contains("correlation_id"), (Object[]) any());
-        verify(jdbc).update(contains("'correlationId', correlation_id"));
-        verify(jdbc).update(contains("FOR UPDATE SKIP LOCKED"));
+        verify(jdbc).update(argThat(sql -> sql.contains("correlation_id")
+                && sql.contains("'correlationId', correlation_id")
+                && sql.contains("FOR UPDATE SKIP LOCKED")), any(Object[].class));
     }
 }
