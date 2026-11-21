@@ -14,9 +14,18 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:perfusionlab}
     password: ${RABBITMQ_PASSWORD:perfusionlab_dev}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 
 perfusion:
   role: ${PERFUSION_ROLE:api}
+  outbox:
+    poll-ms: ${OUTBOX_POLL_MS:500}
+  worker:
+    heartbeat-ms: ${WORKER_HEARTBEAT_MS:30000}
+    recovery-ms: ${WORKER_RECOVERY_MS:15000}
 
 server:
   port: ${PORT:8080}
