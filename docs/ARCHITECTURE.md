@@ -12,9 +12,12 @@ flowchart LR
   O --> PUB[Outbox publisher]
   PUB -->|confirmed publish| EX[RabbitMQ exchange]
   EX --> Q[Durable simulation queue]
-  Q --> W1[Worker replica 1]
-  Q --> W2[Worker replica 2]
-  Q --> WN[Worker replica N]
+  Q --> G[GENERAL queue]
+  O -->|profile routing| M[MEMORY queue]
+  O -->|profile routing| C[COMPUTE queue]
+  G --> W1[GENERAL workers]
+  M --> W2[MEMORY workers]
+  C --> WN[COMPUTE workers]
   W1 --> DB
   W2 --> DB
   WN --> DB
@@ -52,9 +55,28 @@ outbox_events stores event payload, aggregate ID, publication state, attempt cou
 
 Flyway manages all schema changes.
 
+## Grid profiles, batch orchestration and capacity registry
+
+The API accepts an experiment batch with up to 1,000 input scenarios, a declared execution profile and expected parallelism. It inserts the batch, all job rows and all outbox events in one database transaction. Each message carries its profile and the outbox publisher routes it to one of three durable queues:
+
+- GENERAL: default lightweight tasks; retains the legacy queue name for compatibility.
+- MEMORY: tasks expected to need larger memory capacity.
+- COMPUTE: CPU-oriented tasks.
+
+Workers subscribe only to their configured profile queue. Compose provisions one example worker for each profile; each node declares CPU cores, RAM and concurrency slots through environment variables. The worker registry stores these declarations and heartbeats. The inventory endpoint reports active jobs and available slots; nodes with heartbeats older than two minutes are considered inactive.
+
+This is profile-based routing, not yet an autonomous scheduler: the API caller selects the profile, and RabbitMQ distributes work among consumers attached to that profile queue. A later scheduler can use the node registry and measured resource utilization to select nodes dynamically.
+
+Batch status aggregates queued/running/succeeded/failed jobs and reports throughput. Speedup and parallel efficiency are computed only when the caller supplies a measured sequential baseline:
+
+- speedup = sequential baseline duration / observed batch wall time
+- parallel efficiency = speedup / declared parallelism
+
+These metrics describe software execution only. Declared worker resources are not hardware telemetry, and tiny educational calculations may be too cheap to produce meaningful cluster scaling results.
+
 ## Horizontal worker pool and benchmark
 
-Workers are competing consumers on one durable queue. This is a useful horizontal-scaling experiment, but it is not yet a grid scheduler. scripts/benchmark_workers.py reports throughput, p50/p95 completion latency and terminal job counts. Record CPU, memory, database and broker utilization separately before drawing scaling conclusions.
+Workers are competing consumers on one durable queue. This is a useful horizontal-scaling experiment, but it is not yet a grid scheduler. scripts/benchmark_workers.py reports throughput, p50/p95 completion latency and terminal job counts. scripts/benchmark_grid.py submits batch experiments and reports batch throughput, optional speedup and parallel efficiency. Record actual CPU, memory, database and broker utilization separately before drawing scaling conclusions.
 
 ## Remaining work
 
@@ -62,7 +84,8 @@ Workers are competing consumers on one durable queue. This is a useful horizonta
 - Add per-job heartbeat, cancellation and execution fencing for long-running tasks.
 - Add distributed tracing, structured logs, alerting and queue-age metrics.
 - Add experiment batches, model version pinning, random seeds and checksums.
-- Add resource-aware scheduling across local or cloud nodes.
+- Add automatic placement using live free slots, measured CPU/RAM utilization and node health.
+- Add multi-host agent registration, capability negotiation and resource-aware scheduling across local or cloud nodes.
 
 ## Bounded contexts
 
