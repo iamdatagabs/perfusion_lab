@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "perfusion.role", havingValue = "api", matchIfMissing = true)
 public class OutboxPublisher {
+    private static final String NODE_ROUTING_PREFIX = "simulation.execute.node.";
     private final OutboxEventStore outbox;
     private final RabbitTemplate rabbit;
 
@@ -28,7 +29,7 @@ public class OutboxPublisher {
                 CorrelationData correlation = new CorrelationData(event.eventId().toString());
                 rabbit.convertAndSend(
                         SimulationJobService.EXCHANGE,
-                        event.message().executionProfile().routingKey(),
+                        routingKey(event.message()),
                         event.message(),
                         correlation);
                 CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
@@ -43,5 +44,15 @@ public class OutboxPublisher {
                 outbox.markRetry(event.eventId(), event.attempts(), exception.getClass().getSimpleName());
             }
         }
+    }
+
+    private String routingKey(SimulationJobMessage message) {
+        if (message.targetNodeId() == null || message.targetNodeId().isBlank()) {
+            return message.executionProfile().routingKey();
+        }
+        if (!message.targetNodeId().matches("[A-Za-z0-9_-]{1,80}")) {
+            throw new IllegalArgumentException("Invalid target node identifier");
+        }
+        return NODE_ROUTING_PREFIX + message.targetNodeId();
     }
 }
