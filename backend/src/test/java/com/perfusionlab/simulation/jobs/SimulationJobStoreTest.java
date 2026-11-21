@@ -29,6 +29,16 @@ class SimulationJobStoreTest {
     }
 
     @Test
+    void listsRecentJobsWithBoundedLimit() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        SimulationJobStore store = new SimulationJobStore(jdbc, new ObjectMapper());
+
+        assertTrue(store.findRecent(500).isEmpty());
+
+        verify(jdbc).query(contains("ORDER BY submitted_at DESC LIMIT ?"), any(org.springframework.jdbc.core.RowMapper.class), eq(100));
+    }
+
+    @Test
     void onlyOneWorkerCanClaimAQueuedJob() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.update(contains("UPDATE simulation_jobs"), anyString(), anyString(), anyLong(),

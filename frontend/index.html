@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#08131f"><meta name="description" content="PerfusionLab — laboratório educacional de simulação e computação biomédica.">
+  <title>PerfusionLab | Console</title><link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brand-mark">P</span><span>PERFUSION<span class="brand-accent">LAB</span><small>RESEARCH CONSOLE</small></span></a>
+    <div class="side-label">WORKSPACE</div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="overview"><span>◫</span> Visão geral</button>
+      <button class="nav-item" data-view="simulate"><span>⌁</span> Nova simulação</button>
+      <button class="nav-item" data-view="jobs"><span>▤</span> Experimentos</button>
+      <button class="nav-item" data-view="cluster"><span>⌘</span> Computação distribuída</button>
+    </nav>
+    <div class="sidebar-bottom"><div class="connection"><i id="connectionDot"></i><span id="connectionText">Verificando API...</span></div><button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button><div class="side-note">PerfusionLab · MVP 0.2<br>Educational research prototype</div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div class="crumb"><span>PERFUSIONLAB</span><b>/</b><strong id="pageTitle">Visão geral</strong></div><div class="top-actions"><span class="environment"><i></i> AMBIENTE EDUCACIONAL</span><button class="icon-button" id="refreshButton" title="Atualizar dados">↻</button><button class="user-chip" aria-label="Perfil">GP</button></div></header>
+    <div class="content">
+      <section class="view active" id="view-overview">
+        <div class="welcome"><div><div class="eyebrow">RESEARCH WORKSPACE / 01</div><h1>Centro de operações</h1><p>Bem-vindo ao laboratório. Acompanhe simulações, experimentos e capacidade computacional.</p></div><button class="button primary" data-go="simulate">＋ Nova simulação</button></div>
+        <div class="notice"><span>ⓘ</span><div><strong>Ambiente exclusivamente educacional</strong><p>Modelos simplificados, não validados clinicamente. Não utilize resultados para orientar cuidados, parâmetros ou decisões sobre pacientes.</p></div></div>
+        <div class="stat-grid">
+          <article class="stat-card"><div class="stat-top"><span>SIMULAÇÕES REGISTRADAS</span><span class="stat-icon">▤</span></div><strong id="statJobs">—</strong><small>Jobs encontrados no histórico recente</small></article>
+          <article class="stat-card"><div class="stat-top"><span>EXECUÇÕES ATIVAS</span><span class="stat-icon cyan">◌</span></div><strong id="statRunning">—</strong><small>Na fila ou em processamento</small></article>
+          <article class="stat-card"><div class="stat-top"><span>NÓS DISPONÍVEIS</span><span class="stat-icon green">⌘</span></div><strong id="statNodes">—</strong><small>Workers com heartbeat recente</small></article>
+          <article class="stat-card"><div class="stat-top"><span>SLOTS LIVRES</span><span class="stat-icon purple">▦</span></div><strong id="statSlots">—</strong><small>Capacidade declarada disponível</small></article>
+        </div>
+        <div class="dashboard-grid">
+          <article class="panel"><div class="panel-heading"><div><span class="eyebrow">ACTIVITY</span><h2>Experimentos recentes</h2></div><button class="text-button" data-go="jobs">Ver histórico ↗</button></div><div id="recentJobs" class="table-wrap"><div class="empty">Carregando histórico...</div></div></article>
+          <article class="panel"><div class="panel-heading"><div><span class="eyebrow">INFRASTRUCTURE</span><h2>Capacidade do grid</h2></div><span class="live-label"><i></i> LIVE</span></div><div id="capacityOverview"><div class="empty">Consultando workers...</div></div></article>
+        </div>
+      </section>
+      <section class="view" id="view-simulate">
+        <div class="page-heading"><div><div class="eyebrow">SIMULATION LAB / 02</div><h1>Nova simulação</h1><p>Configure os parâmetros de entrada e escolha entre prévia imediata ou execução assíncrona.</p></div><span class="version">MODEL v0.1.0-EDUCATIONAL</span></div>
+        <div class="simulation-layout">
+          <form class="panel form-panel" id="simulationForm">
+            <div class="panel-heading"><div><span class="eyebrow">INPUT PARAMETERS</span><h2>Parâmetros do modelo</h2></div><span class="required">6 VARIÁVEIS</span></div>
+            <div class="form-grid">
+              <label class="form-field"><span>Fluxo de bomba <small>pumpFlowLMin</small></span><div class="input-unit"><input name="pumpFlowLMin" type="number" min=".1" max="10" step=".1" value="4.8" required><em>L/min</em></div></label>
+              <label class="form-field"><span>Hemoglobina <small>hemoglobinGdL</small></span><div class="input-unit"><input name="hemoglobinGdL" type="number" min="1" max="25" step=".1" value="10" required><em>g/dL</em></div></label>
+              <label class="form-field"><span>Saturação arterial <small>arterialSaturation</small></span><div class="input-unit"><input name="arterialSaturationPct" type="number" min="50" max="100" step=".1" value="98" required><em>%</em></div></label>
+              <label class="form-field"><span>Resistência vascular sistêmica <small>systemicVascularResistance</small></span><div class="input-unit"><input name="systemicVascularResistance" type="number" min="100" max="5000" step="10" value="1200" required><em>dyn·s/cm⁵</em></div></label>
+              <label class="form-field"><span>Superfície corporal <small>bodySurfaceAreaM2</small></span><div class="input-unit"><input name="bodySurfaceAreaM2" type="number" min=".3" max="3" step=".01" value="1.9" required><em>m²</em></div></label>
+              <label class="form-field"><span>Temperatura <small>temperatureC</small></span><div class="input-unit"><input name="temperatureC" type="number" min="15" max="40" step=".1" value="35.5" required><em>°C</em></div></label>
+            </div>
+            <div class="form-divider"></div><div class="form-actions"><button class="button secondary" type="button" id="previewButton">Calcular prévia</button><button class="button primary" type="submit">▶ Enviar para o grid</button></div>
+            <p class="form-hint">A execução assíncrona cria um job persistido e o encaminha ao worker disponível. O processamento pode ser acompanhado no histórico.</p>
+          </form>
+          <aside class="panel output-panel"><div class="panel-heading"><div><span class="eyebrow">MODEL OUTPUT</span><h2>Resultados</h2></div><span class="result-state" id="resultState">AGUARDANDO</span></div><div id="previewResults" class="result-placeholder"><div class="placeholder-icon">⌁</div><strong>Aguardando parâmetros</strong><p>Execute uma prévia para visualizar os resultados estimados pelo modelo.</p></div><div class="disclaimer">⚠ <strong>Uso educacional.</strong> O modelo é simplificado e não possui validação clínica. Nenhum resultado deve ser usado para tomada de decisão assistencial.</div></aside>
+        </div>
+      </section>
+      <section class="view" id="view-jobs">
+        <div class="page-heading"><div><div class="eyebrow">EXPERIMENT MANAGEMENT / 03</div><h1>Experimentos</h1><p>Histórico recente de jobs submetidos, estado de execução e resultados disponíveis.</p></div><button class="button primary" data-go="simulate">＋ Nova simulação</button></div>
+        <article class="panel batch-panel"><div class="panel-heading"><div><span class="eyebrow">BATCH ORCHESTRATION</span><h2>Executar lote experimental</h2></div><span class="version">EDA · RABBITMQ</span></div><p class="muted batch-description">Crie réplicas do conjunto de parâmetros configurado em Nova simulação. O scheduler distribuirá os jobs conforme o perfil e a capacidade disponível.</p><form id="batchForm" class="batch-form"><label class="form-field"><span>Réplicas</span><input id="batchReplicates" type="number" min="2" max="100" value="5" required></label><label class="form-field"><span>Perfil de execução</span><select id="batchProfile"><option value="AUTO">AUTO · Seleção automática</option><option value="GENERAL">GENERAL</option><option value="MEMORY">MEMORY</option><option value="COMPUTE">COMPUTE</option></select></label><label class="form-field"><span>Paralelismo</span><input id="batchParallelism" type="number" min="1" max="256" value="2" required></label><button class="button primary" type="submit" id="batchSubmit">▶ Criar lote</button></form><div id="batchStatus" class="batch-status" hidden></div><p class="form-hint">Os jobs do lote são independentes, mas compartilham um identificador de experimento e contexto de correlação.</p></article>
+        <article class="panel"><div class="panel-heading"><div><span class="eyebrow">JOB REGISTRY</span><h2>Histórico de simulações</h2></div><button class="button small secondary" id="jobsRefresh">Atualizar</button></div><div id="allJobs" class="table-wrap"><div class="empty">Carregando...</div></div></article>
+        <article class="panel detail-panel" id="jobDetail" hidden><div class="panel-heading"><div><span class="eyebrow">EXECUTION DETAIL</span><h2>Detalhes da simulação</h2></div><button class="text-button" id="closeDetail">Fechar ×</button></div><div id="jobDetailContent"></div></article>
+      </section>
+      <section class="view" id="view-cluster">
+        <div class="page-heading"><div><div class="eyebrow">COMPUTE FABRIC / 04</div><h1>Computação distribuída</h1><p>Inventário de workers, perfis de execução, slots e telemetria reportada.</p></div><span class="live-label"><i></i> REFRESH 15S</span></div>
+        <div class="stat-grid compact"><article class="stat-card"><div class="stat-top"><span>NÓS ATIVOS</span><span class="stat-icon green">⌘</span></div><strong id="clusterNodes">—</strong></article><article class="stat-card"><div class="stat-top"><span>SLOTS TOTAIS</span><span class="stat-icon cyan">▦</span></div><strong id="clusterTotalSlots">—</strong></article><article class="stat-card"><div class="stat-top"><span>SLOTS LIVRES</span><span class="stat-icon purple">▤</span></div><strong id="clusterFreeSlots">—</strong></article><article class="stat-card"><div class="stat-top"><span>PERFIS DE EXECUÇÃO</span><span class="stat-icon">⌁</span></div><strong>3</strong><small>GENERAL · MEMORY · COMPUTE</small></article></div>
+        <article class="panel"><div class="panel-heading"><div><span class="eyebrow">WORKER REGISTRY</span><h2>Inventário de nós</h2></div><button class="button small secondary" id="clusterRefresh">Atualizar</button></div><div id="nodeTable" class="table-wrap"><div class="empty">Consultando cluster...</div></div></article>
+        <article class="panel"><div class="panel-heading"><div><span class="eyebrow">RESOURCE POOLS</span><h2>Capacidade por perfil</h2></div></div><div id="profileCapacity" class="capacity-grid"></div><p class="subtle-note">CPU/RAM configurados são declarações do worker. CPU do sistema e heap JVM são métricas best-effort, não equivalem a métricas completas de host ou cgroup.</p></article>
+      </section>
+      <section class="view" id="view-settings">
+        <div class="page-heading"><div><div class="eyebrow">PREFERENCES / 05</div><h1>Configurações</h1><p>Configure a conexão entre este console e a API do PerfusionLab.</p></div></div>
+        <article class="panel settings-panel"><span class="eyebrow">API CONNECTION</span><h2>Endpoint do backend</h2><p class="muted">Em execução local com Docker Compose, use o endereço padrão. Para GitHub Pages ou outro domínio, informe a URL pública da API implantada.</p><label class="form-field"><span>Base URL da API</span><input id="apiBaseInput" type="url" placeholder="https://sua-api.exemplo.com"></label><div class="form-actions"><button class="button primary" id="saveSettings">Salvar conexão</button><button class="button secondary" id="testConnection">Testar conexão</button></div><p id="settingsMessage" class="settings-message"></p></article>
+        <article class="panel"><span class="eyebrow">MODEL & SAFETY</span><h2>Escopo do modelo</h2><p>Versão demonstrativa: <strong>0.1.0-educational</strong>. As equações e saídas são simplificadas, não validadas clinicamente e não adequadas para orientar cuidado, parâmetros ou decisões sobre pacientes.</p></article>
+      </section>
+      <footer class="app-footer"><span>PERFUSIONLAB · ACADEMIC SOFTWARE PROTOTYPE</span><span>Not a medical device · Not for clinical use</span></footer>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="./app.js" defer></script>
+</body></html>

@@ -1,0 +1,26 @@
+name: PerfusionLab Chaos Smoke Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "infra/docker-compose.yml"
+      - "backend/Dockerfile"
+      - "scripts/chaos_smoke.sh"
+      - ".github/workflows/chaos-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  broker-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frontend JavaScript
+        run: node --check frontend/app.js
+      - name: Run broker outage and recovery scenario
+        run: bash scripts/chaos_smoke.sh

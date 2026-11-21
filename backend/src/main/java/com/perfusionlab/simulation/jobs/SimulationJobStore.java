@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -54,6 +55,12 @@ public class SimulationJobStore {
                 assignment == null ? null : assignment.incarnationId(), correlationId, traceparent);
         return new SimulationJobStatus(id, SimulationJobStatus.State.QUEUED,
                 submittedAt, null, null, null, null);
+    }
+
+    public List<SimulationJobStatus> findRecent(int requestedLimit) {
+        int limit = Math.max(1, Math.min(requestedLimit, 100));
+        return jdbc.query("SELECT * FROM simulation_jobs ORDER BY submitted_at DESC LIMIT ?",
+                jobRowMapper, limit);
     }
 
     public Optional<SimulationJobStatus> find(UUID id) {

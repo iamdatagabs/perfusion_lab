@@ -1,10 +1,11 @@
-name: Deploy PerfusionLab Landing Page
+name: Deploy PerfusionLab MVP Web Console
 
 on:
   push:
     branches: [main]
     paths:
       - "index.html"
+      - "frontend/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -30,7 +31,7 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "frontend"
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

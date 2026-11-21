@@ -8,7 +8,8 @@ PerfusionLab is an academic software engineering project exploring computational
 
 ## Current capabilities
 
-- Responsive Portuguese landing page with interactive educational calculation preview.
+- Responsive Portuguese MVP web console with dashboard, simulation form, recent job history and worker-cluster inventory.
+- Standalone GitHub Pages frontend and same-origin frontend bundled into the Spring Boot Docker image.
 - Java 21 + Spring Boot API and separately runnable worker role from the same artifact.
 - Asynchronous jobs dispatched through RabbitMQ and executed by competing worker consumers.
 - PostgreSQL persistence for job inputs, lifecycle timestamps, states, errors and results.
@@ -50,7 +51,9 @@ Requirements: Docker Engine and Docker Compose.
 docker compose -f infra/docker-compose.yml up --build -d
 ~~~
 
-API: http://localhost:8080
+API and web console: http://localhost:8080
+
+The console can also be deployed independently through GitHub Pages. Open **Configurações** and set the public API base URL when frontend and backend are hosted on different origins. The API allows browser access through CORS; configure a trusted origin policy before production deployment.
 
 RabbitMQ management: http://localhost:15672 (perfusionlab / perfusionlab_dev)
 
@@ -140,6 +143,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - GET /api/v1/health
 - POST /api/v1/simulations/preview — synchronous educational preview.
 - POST /api/v1/simulations/jobs — enqueue an asynchronous job; returns HTTP 202 and a job ID.
+- GET /api/v1/simulations/jobs?limit=50 — list up to 100 most recent jobs for the web console.
 - GET /api/v1/simulations/jobs/{jobId} — inspect QUEUED, RUNNING, SUCCEEDED or FAILED state and result.
 - POST /api/v1/experiments/batches — atomically create a batch and all its simulation jobs.
 - GET /api/v1/experiments/batches/{batchId} — inspect progress, throughput, optional speedup and efficiency.
@@ -205,3 +209,25 @@ curl -i -X POST http://localhost:8080/api/v1/simulations/jobs \\
 ## Reliability / chaos checks
 
 The backend test suite includes a simulated RabbitMQ outage: a failed publish must return the outbox event to retry scheduling rather than lose it. Lease recovery tests verify trace context is retained when work is reassigned, and existing store tests cover competing worker claims. These are deterministic fault-injection unit tests; they do not replace multi-container integration or production chaos experiments.
+
+
+## MVP web console
+
+The `frontend/` directory contains the static web application:
+- Overview: recent jobs, current execution count and worker capacity.
+- Simulation: parameter form, synchronous model preview and asynchronous job submission.
+- Experiments: recent job registry and execution details with polling for active jobs.
+- Distributed computing: worker inventory, execution profiles and declared capacity.
+- Settings: configurable API base URL for separate frontend/backend deployments.
+
+The Spring Boot Docker image serves the same frontend at its root path. GitHub Pages deploys the `frontend/` directory. The browser stores the API base URL in local storage; for a split deployment, configure the backend's public URL in the console settings. The frontend attaches a per-request `X-Correlation-ID` for traceability.
+
+## Broker recovery smoke test
+
+With Docker Compose available, run:
+
+~~~bash
+bash scripts/chaos_smoke.sh
+~~~
+
+The script starts the stack, interrupts RabbitMQ, submits a simulation while the broker is unavailable, restores the broker and worker pools, then waits for the persisted job to succeed. It is a controlled integration smoke test, not a full chaos-engineering campaign. GitHub Actions also runs it on relevant pull requests and can be triggered manually.

@@ -46,11 +46,12 @@ services:
 
   api:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: perfusionlab-api
     environment:
       PERFUSION_ROLE: api
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx384m
       OTEL_SERVICE_NAME: perfusionlab-api
       PORT: 8080
       DATABASE_URL: jdbc:postgresql://postgres:5432/perfusionlab
@@ -73,10 +74,11 @@ services:
 
   worker:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     environment:
       PERFUSION_ROLE: worker
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m
       OTEL_SERVICE_NAME: perfusionlab-worker-general
       PERFUSION_WORKER_PROFILE: GENERAL
       WORKER_CPU_CORES: 1
@@ -100,10 +102,11 @@ services:
 
   worker-memory:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     environment:
       PERFUSION_ROLE: worker
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m
       OTEL_SERVICE_NAME: perfusionlab-worker-memory
       PERFUSION_WORKER_PROFILE: MEMORY
       WORKER_CPU_CORES: 2
@@ -127,10 +130,11 @@ services:
 
   worker-compute:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     environment:
       PERFUSION_ROLE: worker
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m
       OTEL_SERVICE_NAME: perfusionlab-worker-compute
       PERFUSION_WORKER_PROFILE: COMPUTE
       WORKER_CPU_CORES: 4
