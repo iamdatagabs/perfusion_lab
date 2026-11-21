@@ -11,6 +11,10 @@ on:
       - "scripts/chaos_smoke.sh"
       - ".github/workflows/chaos-smoke.yml"
 
+concurrency:
+  group: perfusionlab-chaos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
