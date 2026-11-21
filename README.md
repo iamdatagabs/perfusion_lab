@@ -152,3 +152,10 @@ GitHub: [@iamdatagabs](https://github.com/iamdatagabs)
 ## License
 
 Apache-2.0.
+
+
+### Atomic node placement and slot reservations
+
+New jobs first attempt to reserve a live READY node in the selected execution profile. PostgreSQL locks the candidate worker row with `FOR UPDATE SKIP LOCKED`; within the same transaction, the job is inserted with the selected `target_node_id` and `target_incarnation_id`, and its outbox event carries the same target. A queued targeted job counts as a reserved slot; once running, that same row continues to count as occupied capacity. This avoids a separate counter that could drift after crashes.
+
+The scheduler prefers nodes with fewer assigned QUEUED/RUNNING jobs, then lower best-effort system CPU load. If no eligible node has a free slot, the job remains unpinned and uses the existing profile queue. If a worker lease expires, recovery clears the old node pin and emits a profile-routed retry, allowing a fresh process incarnation to claim the job. Delivery remains at least once and job claiming remains guarded by the database state transition.
