@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import com.perfusionlab.simulation.observability.TraceContextSupport;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
