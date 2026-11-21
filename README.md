@@ -80,6 +80,19 @@ Each worker process reports a logical `nodeId` and a fresh UUID `incarnationId`.
 
 The message contract accepts optional `targetNodeId` and `targetIncarnationId`. When `targetNodeId` is set, the outbox publisher uses the node-specific routing key; otherwise it preserves the existing profile routing behavior. A worker acknowledges and drops messages addressed to another node or stale process incarnation, preventing obsolete durable-queue messages from being requeued indefinitely. Jobs are pinned only when a live node has free capacity.
 
+### Graceful worker drain
+
+Configure `PERFUSION_ADMIN_TOKEN` on the API service before using the operational endpoint. Drain a specific process incarnation (not merely a reusable node name):
+
+~~~bash
+curl -X POST http://localhost:8080/api/v1/cluster/nodes/worker-a/drain \\
+  -H "Content-Type: application/json" \\
+  -H "X-Perfusion-Admin-Token: $PERFUSION_ADMIN_TOKEN" \\
+  -d '{"incarnationId":"00000000-0000-0000-0000-000000000000"}'
+~~~
+
+The response reports the number of queued assignments returned to profile queues and the number of running jobs still draining. A node becomes OFFLINE automatically when no running jobs remain. The endpoint is disabled when no admin token is configured. Configure the token as a secret; do not commit it.
+
 ### Benchmark
 
 ~~~bash
@@ -132,6 +145,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - GET /api/v1/experiments/batches/{batchId} — inspect progress, throughput, optional speedup and efficiency.
 - GET /api/v1/cluster/nodes — inspect active worker nodes, declared capacity and runtime telemetry.
 - GET /api/v1/cluster/capacity — inspect aggregated capacity and observed pressure by execution profile.
+- POST /api/v1/cluster/nodes/{nodeId}/drain — authenticated graceful drain; reassigns queued jobs and lets running jobs finish.
 
 ## Reliability semantics and limitations
 
@@ -140,7 +154,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
 - Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
 - The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
-- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. A future increment should add explicit node drain orchestration and metrics for reserved versus running slots. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
+- AUTO selects a profile, then node placement reserves a concrete node when live capacity is available. If no node is eligible, the job falls back to the profile queue. Node drain reassigns queued jobs to profile queues and allows already-running work to finish; the response exposes running and remaining queued assignment counts. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
 - Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 
