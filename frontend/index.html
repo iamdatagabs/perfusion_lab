@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#08131f"><meta name="description" content="PerfusionLab — laboratório educacional de simulação e computação biomédica.">
+  <meta name="theme-color" content="#08131f"><meta name="description" content="PerfusionLab — laboratório educacional de simulação, análise matemática de cenários e computação biomédica.">
   <title>PerfusionLab | Console</title><link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -24,6 +24,16 @@
       <section class="view active" id="view-overview">
         <div class="welcome"><div><div class="eyebrow">RESEARCH WORKSPACE / 01</div><h1>Centro de operações</h1><p>Bem-vindo ao laboratório. Acompanhe simulações, experimentos e capacidade computacional.</p></div><button class="button primary" data-go="simulate">＋ Nova simulação</button></div>
         <div class="notice"><span>ⓘ</span><div><strong>Ambiente exclusivamente educacional</strong><p>Modelos simplificados, não validados clinicamente. Não utilize resultados para orientar cuidados, parâmetros ou decisões sobre pacientes.</p></div></div>
+        <article class="panel">
+          <div class="panel-heading"><div><span class="eyebrow">NOVO · MODEL EXPLORATION</span><h2>Indicador de Desvio Hemodinâmico Computacional (IDHC)</h2><p class="muted">Acompanhe, em tempo real, como alterações nos parâmetros modificam os resultados matemáticos do modelo em relação a uma referência configurável.</p></div><span class="version">IDHC · EXPERIMENTAL</span></div>
+          <div class="stat-grid">
+            <article class="stat-card"><div class="stat-top"><span>ESTÁVEL</span><span class="stat-icon green">●</span></div><strong style="font-size:18px;color:var(--green)">Baixo desvio</strong><small>Resultado próximo da referência matemática.</small></article>
+            <article class="stat-card"><div class="stat-top"><span>INSTÁVEL</span><span class="stat-icon">●</span></div><strong style="font-size:18px;color:var(--amber)">Desvio intermediário</strong><small>Diferença moderada em relação à referência.</small></article>
+            <article class="stat-card"><div class="stat-top"><span>CRÍTICO</span><span class="stat-icon" style="color:var(--red)">●</span></div><strong style="font-size:18px;color:var(--red)">Alto desvio</strong><small>Grande diferença matemática em relação à referência.</small></article>
+          </div>
+          <p class="subtle-note">O IDHC combina os desvios relativos de PAM, DO₂ e DO₂i por uma métrica RMS. Os limites são configuráveis e ilustrativos (10% e 25% por padrão). As categorias descrevem exclusivamente o comportamento matemático do modelo — não classificam pacientes nem indicam estabilidade clínica, risco ou conduta.</p>
+          <div class="form-actions"><button class="button primary" data-go="simulate">Explorar indicador na simulação ↗</button></div>
+        </article>
         <div class="stat-grid">
           <article class="stat-card"><div class="stat-top"><span>SIMULAÇÕES REGISTRADAS</span><span class="stat-icon">▤</span></div><strong id="statJobs">—</strong><small>Jobs encontrados no histórico recente</small></article>
           <article class="stat-card"><div class="stat-top"><span>EXECUÇÕES ATIVAS</span><span class="stat-icon cyan">◌</span></div><strong id="statRunning">—</strong><small>Na fila ou em processamento</small></article>
@@ -119,7 +129,7 @@
       <section class="view" id="view-settings">
         <div class="page-heading"><div><div class="eyebrow">PREFERENCES / 05</div><h1>Configurações</h1><p>Configure a conexão entre este console e a API do PerfusionLab.</p></div></div>
         <article class="panel settings-panel"><span class="eyebrow">API CONNECTION</span><h2>Endpoint do backend</h2><p class="muted">Em execução local com Docker Compose, use o endereço padrão. Para GitHub Pages ou outro domínio, informe a URL pública da API implantada.</p><label class="form-field"><span>Base URL da API</span><input id="apiBaseInput" type="url" placeholder="https://sua-api.exemplo.com"></label><div class="form-actions"><button class="button primary" id="saveSettings">Salvar conexão</button><button class="button secondary" id="testConnection">Testar conexão</button></div><p id="settingsMessage" class="settings-message"></p></article>
-        <article class="panel"><span class="eyebrow">MODEL & SAFETY</span><h2>Escopo do modelo</h2><p>Versão demonstrativa: <strong>0.1.0-educational</strong>. As equações e saídas são simplificadas, não validadas clinicamente e não adequadas para orientar cuidado, parâmetros ou decisões sobre pacientes.</p></article>
+        <article class="panel"><span class="eyebrow">MODEL & SAFETY</span><h2>Escopo do modelo</h2><p>Versão demonstrativa: <strong>0.1.0-educational</strong>. Inclui o Indicador de Desvio Hemodinâmico Computacional (IDHC), que compara PAM, DO₂ e DO₂i com uma referência matemática configurável. As equações, limites e saídas são experimentais e não validados clinicamente; não são adequados para orientar cuidado, parâmetros ou decisões sobre pacientes.</p></article>
       </section>
       <footer class="app-footer"><span>PERFUSIONLAB · ACADEMIC SOFTWARE PROTOTYPE</span><span>Not a medical device · Not for clinical use</span></footer>
     </div>
