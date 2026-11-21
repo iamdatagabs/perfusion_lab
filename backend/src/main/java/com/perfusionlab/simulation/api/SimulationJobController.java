@@ -6,6 +6,7 @@ import com.perfusionlab.simulation.jobs.SimulationJobStore;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
+import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,11 @@ public class SimulationJobController {
         return ResponseEntity.accepted()
                 .location(URI.create("/api/v1/simulations/jobs/" + job.jobId()))
                 .body(job);
+    }
+
+    @GetMapping
+    public List<SimulationJobStatus> recent(@RequestParam(defaultValue = "50") int limit) {
+        return store.findRecent(limit);
     }
 
     @GetMapping("/{jobId}")
