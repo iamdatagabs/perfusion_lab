@@ -43,6 +43,7 @@ public class EducationalTimelineModel {
   case "bodySurfaceAreaM2"->new SimulationPreviewRequest(i.pumpFlowLMin(),i.hemoglobinGdL(),i.arterialSaturation(),i.systemicVascularResistance(),v,i.temperatureC());
   case "temperatureC"->new SimulationPreviewRequest(i.pumpFlowLMin(),i.hemoglobinGdL(),i.arterialSaturation(),i.systemicVascularResistance(),i.bodySurfaceAreaM2(),v);
   default->throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported parameter.");};}
+ public void validateTarget(String parameter,double value){ validateEndValue(parameter,value); }
  private void validateEndValue(String p,double v){
   double min,max; switch(p){
    case "pumpFlowLMin"->{min=.1;max=10;} case "hemoglobinGdL"->{min=1;max=25;}
