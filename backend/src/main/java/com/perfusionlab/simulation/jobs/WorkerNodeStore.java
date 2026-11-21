@@ -176,6 +176,15 @@ public class WorkerNodeStore {
                 """, nodeId, incarnationId);
     }
 
+    public int completeIdleDrains() {
+        return jdbc.update("""
+                UPDATE worker_nodes n SET node_status = 'OFFLINE'
+                WHERE n.node_status = 'DRAINING'
+                  AND NOT EXISTS (SELECT 1 FROM simulation_jobs j
+                                  WHERE j.worker_id = n.worker_id AND j.state = 'RUNNING')
+                """);
+    }
+
     public WorkerNodeDrainSnapshot drainSnapshot(String nodeId, UUID incarnationId, int reassigned) {
         return jdbc.queryForObject("""
                 SELECT n.node_id, n.incarnation_id, n.node_status,
