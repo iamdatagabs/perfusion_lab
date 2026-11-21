@@ -2,7 +2,7 @@ const API_KEY='perfusionlab.apiBase';
 const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'': '';
 let apiBase=(localStorage.getItem(API_KEY)??defaultBase()).replace(/\/$/,'');
 const $=id=>document.getElementById(id);
-const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,refreshTimer:null};
+const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null};
 const fmt=(v,d=1)=>v==null?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const date=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,6 +23,49 @@ function renderRecent(){$('recentJobs').innerHTML=jobsTable(state.jobs.slice(0,6
 async function showJob(id){try{const j=await request('/api/v1/simulations/jobs/'+encodeURIComponent(id));state.activeJob=j;$('jobDetail').hidden=false;$('jobDetailContent').innerHTML='<div class="detail-kv"><div><small>JOB ID</small><strong class="mono">'+esc(j.jobId)+'</strong></div><div><small>ESTADO</small><strong>'+statusBadge(j.state)+'</strong></div><div><small>SUBMETIDO</small><strong>'+esc(date(j.submittedAt))+'</strong></div><div><small>INICIADO</small><strong>'+esc(date(j.startedAt))+'</strong></div><div><small>CONCLUÍDO</small><strong>'+esc(date(j.completedAt))+'</strong></div><div><small>ERRO</small><strong>'+esc(j.error||'—')+'</strong></div></div>'+(j.result?renderResult(j.result):'<p class="muted">Resultado ainda não disponível.</p>');$('jobDetail').scrollIntoView({behavior:'smooth',block:'start'});if(['QUEUED','RUNNING'].includes(j.state))watchJob(id)}catch(e){toast('Falha ao consultar job: '+e.message)}}
 function renderResult(r){return '<h3 style="font-size:13px;margin:18px 0 10px">Resultados do modelo</h3><div class="result-grid"><div class="result-card"><small>PAM ESTIMADA</small><strong>'+fmt(r.estimatedMapMmHg)+'</strong></div><div class="result-card"><small>DO₂</small><strong>'+fmt(r.estimatedOxygenDeliveryMlMin,0)+'</strong></div><div class="result-card"><small>DO₂ INDEXADA</small><strong>'+fmt(r.estimatedOxygenDeliveryIndexMlMinM2,0)+'</strong></div><div class="result-card"><small>VERSÃO DO MODELO</small><strong style="font-size:14px">'+esc(r.modelVersion)+'</strong></div></div>'}
 $('closeDetail').addEventListener('click',()=>$('jobDetail').hidden=true);
+
+$('batchForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const source=$('simulationForm');
+  if(!source.reportValidity()){toast('Revise os parâmetros em Nova simulação antes de criar o lote.');return}
+  const count=Number($('batchReplicates').value),parallelism=Number($('batchParallelism').value);
+  if(!Number.isInteger(count)||count<2||count>100||!Number.isInteger(parallelism)||parallelism<1||parallelism>256){toast('Revise o número de réplicas e o paralelismo.');return}
+  const button=$('batchSubmit');
+  try{
+    button.disabled=true;button.textContent='Criando lote...';
+    const base=formPayload();
+    const batch=await request('/api/v1/experiments/batches',{method:'POST',body:JSON.stringify({
+      executionProfile:$('batchProfile').value,parallelism,simulations:Array.from({length:count},()=>({...base}))
+    })});
+    $('batchStatus').hidden=false;
+    $('batchStatus').innerHTML='<strong>Lote criado</strong><div class="mono">'+esc(batch.batchId)+'</div><p>Consultando estado dos '+batch.jobCount+' jobs...</p>';
+    toast('Lote experimental enviado · '+String(batch.batchId).slice(0,8));
+    watchBatch(batch.batchId);
+  }catch(err){toast('Falha ao criar lote: '+err.message)}
+  finally{button.disabled=false;button.textContent='▶ Criar lote'}
+});
+function watchBatch(id){
+  if(state.batchPollTimer)clearInterval(state.batchPollTimer);
+  let attempts=0;
+  const refresh=async()=>{
+    attempts++;
+    try{
+      const b=await request('/api/v1/experiments/batches/'+encodeURIComponent(id));
+      const done=b.succeeded+b.failed,percent=b.jobCount?Math.round(done/b.jobCount*100):0;
+      $('batchStatus').hidden=false;
+      $('batchStatus').innerHTML='<div><strong>'+esc(b.state)+'</strong> · '+done+' / '+b.jobCount+' concluídos</div><div class="batch-progress"><i style="width:'+percent+'%"></i></div><div>Na fila: '+b.queued+' · Executando: '+b.running+' · Sucesso: '+b.succeeded+' · Falhas: '+b.failed+'</div><p>Perfil resolvido: '+esc(b.executionProfile)+' · Paralelismo: '+b.parallelism+'</p><div class="mono">Batch ID: '+esc(b.batchId)+'</div>'+(b.schedulingReason?'<p>'+esc(b.schedulingReason)+'</p>':'');
+      if(['SUCCEEDED','PARTIAL','FAILED'].includes(b.state)||attempts>=150){
+        clearInterval(state.batchPollTimer);state.batchPollTimer=null;
+        await loadJobs();await loadOverview();
+      }
+    }catch(err){
+      $('batchStatus').innerHTML='<strong>Falha ao consultar lote</strong><p>'+esc(err.message)+'</p>';
+      if(attempts>=150){clearInterval(state.batchPollTimer);state.batchPollTimer=null}
+    }
+  };
+  refresh();state.batchPollTimer=setInterval(refresh,2000);
+}
+
 async function loadCluster(){try{const [nodes,capacity]=await Promise.all([request('/api/v1/cluster/nodes'),request('/api/v1/cluster/capacity')]);state.nodes=nodes;state.capacity=capacity;renderCluster()}catch(e){$('nodeTable').innerHTML='<div class="empty">Não foi possível consultar o cluster. '+esc(e.message)+'</div>'}}
 function renderCapacity(target,items){target.innerHTML=items.length?items.map(c=>{const used=Math.max(0,c.totalSlots-c.availableSlots),pct=c.totalSlots?Math.min(100,used/c.totalSlots*100):0;return '<div class="capacity-row"><div class="capacity-title"><strong>'+esc(c.executionProfile)+'</strong><span>'+c.availableSlots+' / '+c.totalSlots+' slots livres</span></div><div class="progress"><i style="width:'+pct+'%"></i></div><div class="subtle-note">'+c.activeNodes+' nós · '+c.totalCpuCores+' vCPU declaradas · '+fmt(c.totalMemoryMb/1024,1)+' GB declarados</div></div>'}).join(''):'<div class="empty">Nenhuma capacidade publicada.</div>'}
 function renderCluster(){const active=state.nodes.filter(n=>n.nodeStatus==='READY');const total=state.capacity.reduce((a,c)=>a+c.totalSlots,0),free=state.capacity.reduce((a,c)=>a+c.availableSlots,0);$('clusterNodes').textContent=active.length;$('clusterTotalSlots').textContent=total;$('clusterFreeSlots').textContent=free;$('nodeTable').innerHTML=state.nodes.length?'<table class="data-table"><thead><tr><th>NÓ</th><th>ESTADO</th><th>PERFIL</th><th>CPU / RAM</th><th>SLOTS</th><th>HEARTBEAT</th><th>JVM HEAP</th></tr></thead><tbody>'+state.nodes.map(n=>'<tr><td><strong>'+esc(n.nodeId)+'</strong><div class="mono">'+esc(n.hostname||n.workerId)+'</div></td><td>'+statusBadge(n.nodeStatus)+'</td><td>'+esc(n.executionProfile)+'</td><td>'+n.cpuCores+' vCPU / '+fmt(n.memoryMb/1024,1)+' GB</td><td>'+n.availableSlots+' / '+n.slots+'</td><td>'+esc(date(n.heartbeatAt))+'</td><td>'+n.jvmHeapUsedMb+' / '+n.jvmHeapMaxMb+' MB</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nenhum worker ativo foi localizado.</div>';renderCapacity($('profileCapacity'),state.capacity);renderCapacity($('capacityOverview'),state.capacity)}
