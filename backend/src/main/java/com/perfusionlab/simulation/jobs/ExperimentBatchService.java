@@ -13,23 +13,27 @@ public class ExperimentBatchService {
     private final ExperimentBatchStore batches;
     private final SimulationJobStore jobs;
     private final OutboxEventStore outbox;
+    private final ExecutionPlanner planner;
 
     public ExperimentBatchService(ExperimentBatchStore batches, SimulationJobStore jobs,
-                                  OutboxEventStore outbox) {
+                                  OutboxEventStore outbox, ExecutionPlanner planner) {
         this.batches = batches;
         this.jobs = jobs;
         this.outbox = outbox;
+        this.planner = planner;
     }
 
     @Transactional
     public ExperimentBatchStatus submit(ExperimentBatchRequest request) {
+        SchedulingDecision decision = planner.plan(request.executionProfile());
         UUID batchId = UUID.randomUUID();
-        batches.create(batchId, request.executionProfile(), request.parallelism(),
-                request.simulations().size(), request.baselineSequentialMs());
+        batches.create(batchId, decision.profile(), request.executionProfile(),
+                decision.reason(), request.parallelism(), request.simulations().size(),
+                request.baselineSequentialMs());
         request.simulations().forEach(input -> {
             UUID jobId = UUID.randomUUID();
-            jobs.create(jobId, input, batchId, request.executionProfile());
-            outbox.enqueue(batchId, new SimulationJobMessage(jobId, input, request.executionProfile()));
+            jobs.create(jobId, input, batchId, decision.profile());
+            outbox.enqueue(batchId, new SimulationJobMessage(jobId, input, decision.profile()));
         });
         return batches.find(batchId).orElseThrow();
     }

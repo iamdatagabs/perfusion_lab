@@ -1,6 +1,7 @@
 package com.perfusionlab.simulation.jobs;
 
 import com.perfusionlab.simulation.api.ExperimentBatchStatus;
+import com.perfusionlab.simulation.api.RequestedExecutionProfile;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -18,18 +19,22 @@ public class ExperimentBatchStore {
         this.jdbc = jdbc;
     }
 
-    public void create(UUID id, ExecutionProfile profile, int parallelism, int jobCount,
+    public void create(UUID id, ExecutionProfile profile, RequestedExecutionProfile requestedProfile,
+                       String schedulingReason, int parallelism, int jobCount,
                        Long baselineSequentialMs) {
         jdbc.update("""
                 INSERT INTO experiment_batches
-                    (batch_id, execution_profile, parallelism, job_count, baseline_sequential_ms)
-                VALUES (?, ?, ?, ?, ?)
-                """, id, profile.name(), parallelism, jobCount, baselineSequentialMs);
+                    (batch_id, execution_profile, requested_execution_profile, scheduling_reason,
+                     parallelism, job_count, baseline_sequential_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, id, profile.name(), requestedProfile.name(), schedulingReason,
+                parallelism, jobCount, baselineSequentialMs);
     }
 
     public Optional<ExperimentBatchStatus> find(UUID id) {
         return jdbc.query("""
-                SELECT b.batch_id, b.execution_profile, b.parallelism, b.job_count,
+                SELECT b.batch_id, b.execution_profile, b.requested_execution_profile,
+                       b.scheduling_reason, b.parallelism, b.job_count,
                        b.baseline_sequential_ms, b.submitted_at,
                        COUNT(j.job_id) FILTER (WHERE j.state = 'QUEUED') AS queued,
                        COUNT(j.job_id) FILTER (WHERE j.state = 'RUNNING') AS running,
@@ -64,6 +69,7 @@ public class ExperimentBatchStore {
             Instant end = completed != null ? completed : Instant.now();
             double seconds = Math.max(0.001, DurationMath.secondsBetween(started, end));
             throughput = succeeded / seconds;
+            speedup = null;
             long baseline = rs.getLong("baseline_sequential_ms");
             if (!rs.wasNull() && baseline > 0) {
                 speedup = (baseline / 1000.0) / seconds;
@@ -73,6 +79,8 @@ public class ExperimentBatchStore {
         return new ExperimentBatchStatus(
                 rs.getObject("batch_id", UUID.class),
                 ExecutionProfile.valueOf(rs.getString("execution_profile")),
+                RequestedExecutionProfile.valueOf(rs.getString("requested_execution_profile")),
+                rs.getString("scheduling_reason"),
                 state, total, queued, running, succeeded, failed,
                 rs.getInt("parallelism"), submitted, started, completed,
                 throughput, speedup, efficiency);

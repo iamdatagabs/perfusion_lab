@@ -41,4 +41,9 @@ public class ExperimentBatchController {
     public List<WorkerNodeStatus> nodes() {
         return nodes.activeNodes();
     }
+
+    @GetMapping("/cluster/capacity")
+    public List<ProfileCapacity> capacity() {
+        return nodes.profileCapacities();
+    }
 }

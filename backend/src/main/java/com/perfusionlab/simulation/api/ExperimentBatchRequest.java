@@ -1,6 +1,5 @@
 package com.perfusionlab.simulation.api;
 
-import com.perfusionlab.simulation.jobs.ExecutionProfile;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -12,7 +11,7 @@ import java.util.List;
 
 public record ExperimentBatchRequest(
         @NotEmpty @Size(max = 1000) List<@Valid SimulationPreviewRequest> simulations,
-        @NotNull ExecutionProfile executionProfile,
+        @NotNull RequestedExecutionProfile executionProfile,
         @NotNull @Min(1) @Max(256) Integer parallelism,
         @Positive Long baselineSequentialMs
 ) {}

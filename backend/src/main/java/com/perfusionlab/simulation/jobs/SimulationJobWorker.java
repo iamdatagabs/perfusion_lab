@@ -19,6 +19,7 @@ public class SimulationJobWorker {
     private final SimplifiedPerfusionModel model;
     private final SimulationJobStore store;
     private final WorkerNodeStore nodes;
+    private final WorkerTelemetryCollector telemetryCollector;
     private final String workerId = UUID.randomUUID().toString();
     private final Instant startedAt = Instant.now();
     private final ExecutionProfile profile;
@@ -31,6 +32,7 @@ public class SimulationJobWorker {
             SimplifiedPerfusionModel model,
             SimulationJobStore store,
             WorkerNodeStore nodes,
+            WorkerTelemetryCollector telemetryCollector,
             @Value("${perfusion.worker.profile:GENERAL}") String profile,
             @Value("${perfusion.worker.cpu-cores:1}") int cpuCores,
             @Value("${perfusion.worker.memory-mb:2048}") int memoryMb,
@@ -38,6 +40,7 @@ public class SimulationJobWorker {
         this.model = model;
         this.store = store;
         this.nodes = nodes;
+        this.telemetryCollector = telemetryCollector;
         this.profile = ExecutionProfile.valueOf(profile.toUpperCase());
         this.cpuCores = Math.max(1, cpuCores);
         this.memoryMb = Math.max(256, memoryMb);
@@ -53,7 +56,7 @@ public class SimulationJobWorker {
 
     @PostConstruct
     public void registerNode() {
-        nodes.heartbeat(workerId, profile, hostname, cpuCores, memoryMb, slots, startedAt);
+        publishHeartbeat();
     }
 
     @RabbitListener(queues = "#{@workerQueueName}")
@@ -74,6 +77,11 @@ public class SimulationJobWorker {
     @Scheduled(fixedDelayString = "${perfusion.worker.heartbeat-ms:30000}")
     public void heartbeat() {
         store.heartbeat(workerId, LEASE);
-        nodes.heartbeat(workerId, profile, hostname, cpuCores, memoryMb, slots, startedAt);
+        publishHeartbeat();
+    }
+
+    private void publishHeartbeat() {
+        nodes.heartbeat(workerId, profile, hostname, cpuCores, memoryMb, slots,
+                startedAt, telemetryCollector.collect());
     }
 }

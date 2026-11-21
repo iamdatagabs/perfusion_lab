@@ -20,7 +20,8 @@ PerfusionLab is an academic software engineering project exploring computational
 - Flyway-managed schema and Docker Compose topology with API, worker, PostgreSQL and RabbitMQ.
 - Experiment batches with transactional job fan-out and batch progress metrics.
 - Three independently routed worker profiles: GENERAL, MEMORY and COMPUTE.
-- Worker registry reporting declared CPU, RAM, slots, active jobs and available slots.
+- Worker registry reporting declared CPU/RAM/slots, active jobs, available slots and best-effort JVM/system telemetry.
+- Automatic batch profile selection (`AUTO`) using live free slots and observed CPU/heap pressure, with an auditable scheduling reason.
 - HTTP benchmark script for comparing worker pool sizes and batch execution.
 
 ## Architecture
@@ -89,7 +90,7 @@ The script reports successful/failed jobs, wall time, throughput and p50/p95 com
 curl -X POST http://localhost:8080/api/v1/experiments/batches \
   -H "Content-Type: application/json" \
   -d '{
-    "executionProfile": "COMPUTE",
+    "executionProfile": "AUTO",
     "parallelism": 1,
     "simulations": [
       {
@@ -104,7 +105,7 @@ curl -X POST http://localhost:8080/api/v1/experiments/batches \
   }'
 ~~~
 
-Poll the returned batch URL at GET /api/v1/experiments/batches/{batchId}. Profiles are GENERAL, MEMORY and COMPUTE. Optional baselineSequentialMs enables speedup and parallel-efficiency calculations; without a measured sequential baseline, these fields remain null.
+Poll the returned batch URL at GET /api/v1/experiments/batches/{batchId}. `executionProfile` accepts AUTO, GENERAL, MEMORY or COMPUTE. AUTO chooses an eligible profile using active worker slots and best-effort CPU/heap telemetry; the response records both the requested profile and the resolved profile/reason. If no live free slots exist, AUTO queues on GENERAL as a documented fallback. Optional baselineSequentialMs enables speedup and parallel-efficiency calculations; without a measured sequential baseline, these fields remain null.
 
 Run a batch benchmark:
 
@@ -121,7 +122,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - GET /api/v1/simulations/jobs/{jobId} — inspect QUEUED, RUNNING, SUCCEEDED or FAILED state and result.
 - POST /api/v1/experiments/batches — atomically create a batch and all its simulation jobs.
 - GET /api/v1/experiments/batches/{batchId} — inspect progress, throughput, optional speedup and efficiency.
-- GET /api/v1/cluster/nodes — inspect active worker nodes and available slots.
+- GET /api/v1/cluster/nodes — inspect active worker nodes, declared capacity and runtime telemetry.\n- GET /api/v1/cluster/capacity — inspect aggregated capacity and observed pressure by execution profile.
 
 ## Reliability semantics and limitations
 
@@ -130,7 +131,7 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 - Worker leases expire after two minutes and are extended every 30 seconds. Three expired execution attempts result in FAILED.
 - Recovery runs in the API role. Multiple API instances are safe because outbox claims and recovery use PostgreSQL row locks with SKIP LOCKED.
 - The heartbeat is worker-scoped rather than task-scoped. A future iteration should add per-job heartbeats, cancellation and stronger fencing for long-running tasks.
-- Profile selection currently routes to statically configured queues; there is not yet automatic placement based on live free capacity, node-to-node scheduling, a dedicated dead-letter queue, distributed tracing or alerting.
+- AUTO selects a profile queue from current node capacity; RabbitMQ still distributes among consumers of that queue. This is not direct node pinning or a cross-host agent scheduler. CPU load is best-effort system telemetry and JVM heap metrics are not cgroup/host memory telemetry. A dedicated dead-letter queue, distributed tracing and alerting remain future work.
 - Local Compose credentials are development-only and must be replaced for shared or deployed environments.
 - The educational model is not clinically validated and must never guide patient care.
 
