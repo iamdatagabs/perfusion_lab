@@ -3,6 +3,8 @@ package com.perfusionlab.simulation.jobs;
 import com.perfusionlab.simulation.api.ExperimentBatchRequest;
 import com.perfusionlab.simulation.api.ExperimentBatchStatus;
 import java.util.UUID;
+import com.perfusionlab.simulation.observability.TraceContextSupport;
+import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,15 +17,17 @@ public class ExperimentBatchService {
     private final OutboxEventStore outbox;
     private final ExecutionPlanner planner;
     private final WorkerNodeStore nodes;
+    private final TraceContextSupport traceContext;
 
     public ExperimentBatchService(ExperimentBatchStore batches, SimulationJobStore jobs,
                                   OutboxEventStore outbox, ExecutionPlanner planner,
-                                  WorkerNodeStore nodes) {
+                                  WorkerNodeStore nodes, TraceContextSupport traceContext) {
         this.batches = batches;
         this.jobs = jobs;
         this.outbox = outbox;
         this.planner = planner;
         this.nodes = nodes;
+        this.traceContext = traceContext;
     }
 
     @Transactional
@@ -37,9 +41,9 @@ public class ExperimentBatchService {
             UUID jobId = UUID.randomUUID();
             WorkerNodeAssignment assignment = nodes.reserveNode(decision.profile()).orElse(null);
             jobs.create(jobId, input, batchId, decision.profile(), assignment);
-            outbox.enqueue(batchId, new SimulationJobMessage(jobId, input, decision.profile(),
+            outbox.enqueue(batchId, traceContext.capture(new SimulationJobMessage(jobId, input, decision.profile(),
                     assignment == null ? null : assignment.nodeId(),
-                    assignment == null ? null : assignment.incarnationId()));
+                    assignment == null ? null : assignment.incarnationId()), MDC.get("correlationId")));
         });
         return batches.find(batchId).orElseThrow();
     }
