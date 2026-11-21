@@ -48,6 +48,18 @@
               <label class="form-field"><span>Superfície corporal <small>bodySurfaceAreaM2</small></span><div class="input-unit"><input name="bodySurfaceAreaM2" type="number" min=".3" max="3" step=".01" value="1.9" required><em>m²</em></div></label>
               <label class="form-field"><span>Temperatura <small>temperatureC</small></span><div class="input-unit"><input name="temperatureC" type="number" min="15" max="40" step=".1" value="35.5" required><em>°C</em></div></label>
             </div>
+            <section class="math-flag pending" id="mathFlag" aria-live="polite">
+              <div class="math-flag-top"><div><span class="eyebrow">INDICADOR MATEMÁTICO</span><h3 id="mathFlagTitle">Calculando referência...</h3><p id="mathFlagDescription">Comparação relativa dos resultados do modelo.</p></div><strong class="math-flag-score" id="mathFlagScore">—</strong></div>
+              <div class="math-flag-details" id="mathFlagDetails">PAM · DO₂ · DO₂i</div>
+              <div class="math-flag-controls">
+                <label>Estável até (%) <input id="mathStableLimit" type="number" min="0" max="1000" step=".5" value="10"></label>
+                <label>Crítico acima (%) <input id="mathCriticalLimit" type="number" min=".5" max="2000" step=".5" value="25"></label>
+                <button class="button small secondary" type="button" id="setMathReference">Definir parâmetros atuais como referência</button>
+              </div>
+              <p class="math-flag-foot" id="mathFlagThresholds">Estável ≤ 10% · Crítico > 25%</p>
+              <p class="math-flag-foot" id="mathReferenceState">Referência inicial baseada nos valores carregados.</p>
+              <p class="math-flag-warning">Classificação matemática relativa, calculada pelo desvio RMS percentual de PAM, DO₂ e DO₂i em relação à referência. Não representa estabilidade clínica, risco real ou recomendação assistencial.</p>
+            </section>
             <div class="form-divider"></div><div class="form-actions"><button class="button secondary" type="button" id="previewButton">Calcular prévia</button><button class="button primary" type="submit">▶ Enviar para o grid</button></div>
             <p class="form-hint">A execução assíncrona cria um job persistido e o encaminha ao worker disponível. O processamento pode ser acompanhado no histórico.</p>
           </form>
