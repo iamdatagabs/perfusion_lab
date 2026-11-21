@@ -53,7 +53,7 @@ docker compose -f infra/docker-compose.yml up --build -d
 
 API and web console: http://localhost:8080
 
-The console can also be deployed independently through GitHub Pages. Open **Configurações** and set the public API base URL when frontend and backend are hosted on different origins. The API allows browser access through CORS; configure a trusted origin policy before production deployment.
+The legacy console can also be deployed independently. Open **Configurações** and set the public API base URL when frontend and backend are hosted on different origins. The API allows browser access through CORS; configure a trusted origin policy before production deployment.
 
 RabbitMQ management: http://localhost:15672 (perfusionlab / perfusionlab_dev)
 
