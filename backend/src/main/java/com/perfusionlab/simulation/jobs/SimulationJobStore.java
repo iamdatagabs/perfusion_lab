@@ -60,22 +60,22 @@ public class SimulationJobStore {
                 """, lease.toSeconds(), workerId);
     }
 
-    public void markSucceeded(UUID id, SimulationPreviewResponse result) {
+    public void markSucceeded(UUID id, String workerId, SimulationPreviewResponse result) {
         jdbc.update("""
                 UPDATE simulation_jobs
                 SET state = 'SUCCEEDED', completed_at = ?, result_json = ?::jsonb, error = NULL,
                     worker_id = NULL, heartbeat_at = NULL, lease_expires_at = NULL
-                WHERE job_id = ? AND state = 'RUNNING'
-                """, Timestamp.from(Instant.now()), toJson(result), id);
+                WHERE job_id = ? AND state = 'RUNNING' AND worker_id = ?
+                """, Timestamp.from(Instant.now()), toJson(result), id, workerId);
     }
 
-    public void markFailed(UUID id, Exception error) {
+    public void markFailed(UUID id, String workerId, Exception error) {
         jdbc.update("""
                 UPDATE simulation_jobs
                 SET state = 'FAILED', completed_at = ?, error = ?,
                     worker_id = NULL, heartbeat_at = NULL, lease_expires_at = NULL
-                WHERE job_id = ? AND state IN ('QUEUED', 'RUNNING')
-                """, Timestamp.from(Instant.now()), error.getClass().getSimpleName(), id);
+                WHERE job_id = ? AND state = 'RUNNING' AND worker_id = ?
+                """, Timestamp.from(Instant.now()), error.getClass().getSimpleName(), id, workerId);
     }
 
     private String toJson(Object value) {
