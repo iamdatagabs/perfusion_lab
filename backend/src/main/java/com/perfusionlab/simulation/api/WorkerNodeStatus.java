@@ -10,6 +10,8 @@ public record WorkerNodeStatus(
         int cpuCores,
         int memoryMb,
         int slots,
+        int activeJobs,
+        int availableSlots,
         Instant startedAt,
         Instant heartbeatAt,
         String softwareVersion
