@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "index.html"
-      - "frontend/**"
+      - "assets/**"\n      - "tests/**"\n      - "frontend/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -28,10 +28,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload site artifact
+      - name: Set up Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 22\n      - name: Test homepage simulator indicators\n        run: node --test tests/simulator.test.js\n      - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "frontend"
+          path: "."
           name: github-pages-${{ github.run_attempt }}
           retention-days: 1
       - name: Deploy to GitHub Pages
