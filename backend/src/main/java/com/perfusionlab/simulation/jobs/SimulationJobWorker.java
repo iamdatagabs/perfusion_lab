@@ -1,6 +1,7 @@
 package com.perfusionlab.simulation.jobs;
 
 import com.perfusionlab.simulation.domain.SimplifiedPerfusionModel;
+import jakarta.annotation.PostConstruct;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
@@ -48,6 +49,11 @@ public class SimulationJobWorker {
             host = "unknown";
         }
         this.hostname = host;
+    }
+
+    @PostConstruct
+    public void registerNode() {
+        nodes.heartbeat(workerId, profile, hostname, cpuCores, memoryMb, slots, startedAt);
     }
 
     @RabbitListener(queues = "#{@workerQueueName}")
