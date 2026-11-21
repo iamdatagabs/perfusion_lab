@@ -44,6 +44,27 @@ public class SimulationJobRecovery {
                     FROM expired e
                     WHERE j.job_id = e.job_id AND e.attempt_count < 3
                     RETURNING j.job_id, j.input_json, j.execution_profile
+                ), orphaned AS (
+                    UPDATE simulation_jobs j
+                    SET target_node_id = NULL, target_incarnation_id = NULL
+                    WHERE j.job_id IN (
+                        SELECT q.job_id
+                        FROM simulation_jobs q
+                        WHERE q.state = 'QUEUED' AND q.target_node_id IS NOT NULL
+                          AND NOT EXISTS (
+                              SELECT 1 FROM worker_nodes n
+                              WHERE n.node_id = q.target_node_id
+                                AND n.incarnation_id = q.target_incarnation_id
+                                AND n.node_status = 'READY'
+                                AND n.heartbeat_at >= now() - interval '2 minutes'
+                          )
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    RETURNING j.job_id, j.input_json, j.execution_profile
+                ), retry_payloads AS (
+                    SELECT job_id, input_json, execution_profile FROM retryable
+                    UNION ALL
+                    SELECT job_id, input_json, execution_profile FROM orphaned
                 )
                 INSERT INTO outbox_events
                     (event_id, aggregate_id, event_type, payload, status, created_at, next_attempt_at)
@@ -52,7 +73,7 @@ public class SimulationJobRecovery {
                            'executionProfile', execution_profile,
                            'targetNodeId', NULL, 'targetIncarnationId', NULL),
                        'PENDING', now(), now()
-                FROM retryable
+                FROM retry_payloads
                 """);
     }
 }
