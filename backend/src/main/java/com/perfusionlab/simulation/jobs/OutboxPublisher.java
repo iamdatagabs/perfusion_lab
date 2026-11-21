@@ -3,6 +3,7 @@ package com.perfusionlab.simulation.jobs;
 import java.util.concurrent.TimeUnit;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,6 +35,13 @@ public class OutboxPublisher {
                         SimulationJobService.EXCHANGE,
                         routingKey(event.message()),
                         event.message(),
+                        message -> {
+                            message.getMessageProperties().setHeader("X-Correlation-ID", event.message().correlationId());
+                            if (event.message().traceparent() != null) {
+                                message.getMessageProperties().setHeader("traceparent", event.message().traceparent());
+                            }
+                            return message;
+                        },
                         correlation);
                 CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
                 if (!confirm.isAck()) {
