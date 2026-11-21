@@ -18,10 +18,11 @@ public class SimulationJobRecovery {
     @Scheduled(fixedDelayString = "${perfusion.worker.recovery-ms:15000}")
     @Transactional
     public void recoverExpiredLeases() {
-        // A crashed worker's lease expires; requeue with a fresh outbox event.
+        // A crashed worker's lease expires; release its node pin and requeue
+        // through the profile pool. A fresh worker incarnation can then claim it.
         jdbc.update("""
                 WITH expired AS (
-                    SELECT job_id, input_json, attempt_count
+                    SELECT job_id, input_json, attempt_count, execution_profile
                     FROM simulation_jobs
                     WHERE state = 'RUNNING' AND lease_expires_at < now()
                     FOR UPDATE SKIP LOCKED
@@ -29,7 +30,8 @@ public class SimulationJobRecovery {
                     UPDATE simulation_jobs j
                     SET state = 'FAILED', completed_at = now(),
                         error = 'WorkerLeaseExpired: retry limit reached',
-                        worker_id = NULL, lease_expires_at = NULL
+                        worker_id = NULL, lease_expires_at = NULL,
+                        target_node_id = NULL, target_incarnation_id = NULL
                     FROM expired e
                     WHERE j.job_id = e.job_id AND e.attempt_count >= 3
                     RETURNING j.job_id
@@ -37,17 +39,41 @@ public class SimulationJobRecovery {
                     UPDATE simulation_jobs j
                     SET state = 'QUEUED', worker_id = NULL, lease_expires_at = NULL,
                         heartbeat_at = NULL, started_at = NULL,
+                        target_node_id = NULL, target_incarnation_id = NULL,
                         attempt_count = j.attempt_count + 1
                     FROM expired e
                     WHERE j.job_id = e.job_id AND e.attempt_count < 3
-                    RETURNING j.job_id, j.input_json
+                    RETURNING j.job_id, j.input_json, j.execution_profile
+                ), orphaned AS (
+                    UPDATE simulation_jobs j
+                    SET target_node_id = NULL, target_incarnation_id = NULL
+                    WHERE j.job_id IN (
+                        SELECT q.job_id
+                        FROM simulation_jobs q
+                        WHERE q.state = 'QUEUED' AND q.target_node_id IS NOT NULL
+                          AND NOT EXISTS (
+                              SELECT 1 FROM worker_nodes n
+                              WHERE n.node_id = q.target_node_id
+                                AND n.incarnation_id = q.target_incarnation_id
+                                AND n.node_status = 'READY'
+                                AND n.heartbeat_at >= now() - interval '2 minutes'
+                          )
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    RETURNING j.job_id, j.input_json, j.execution_profile
+                ), retry_payloads AS (
+                    SELECT job_id, input_json, execution_profile FROM retryable
+                    UNION ALL
+                    SELECT job_id, input_json, execution_profile FROM orphaned
                 )
                 INSERT INTO outbox_events
                     (event_id, aggregate_id, event_type, payload, status, created_at, next_attempt_at)
                 SELECT gen_random_uuid(), job_id, 'SimulationJobRequested',
-                       jsonb_build_object('jobId', job_id, 'input', input_json),
+                       jsonb_build_object('jobId', job_id, 'input', input_json,
+                           'executionProfile', execution_profile,
+                           'targetNodeId', NULL, 'targetIncarnationId', NULL),
                        'PENDING', now(), now()
-                FROM retryable
+                FROM retry_payloads
                 """);
     }
 }

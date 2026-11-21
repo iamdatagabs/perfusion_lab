@@ -13,10 +13,12 @@ public class SimulationJobService {
     public static final String ROUTING_KEY = "simulation.execute.general";
     private final SimulationJobStore store;
     private final OutboxEventStore outbox;
+    private final WorkerNodeStore nodes;
 
-    public SimulationJobService(SimulationJobStore store, OutboxEventStore outbox) {
+    public SimulationJobService(SimulationJobStore store, OutboxEventStore outbox, WorkerNodeStore nodes) {
         this.store = store;
         this.outbox = outbox;
+        this.nodes = nodes;
     }
 
     @Transactional
@@ -27,8 +29,11 @@ public class SimulationJobService {
     @Transactional
     public SimulationJobStatus submit(SimulationPreviewRequest input, ExecutionProfile profile) {
         UUID id = UUID.randomUUID();
-        SimulationJobStatus job = store.create(id, input, null, profile);
-        outbox.enqueue(id, new SimulationJobMessage(id, input, profile));
+        WorkerNodeAssignment assignment = nodes.reserveNode(profile).orElse(null);
+        SimulationJobStatus job = store.create(id, input, null, profile, assignment);
+        outbox.enqueue(id, new SimulationJobMessage(id, input, profile,
+                assignment == null ? null : assignment.nodeId(),
+                assignment == null ? null : assignment.incarnationId()));
         return job;
     }
 }
