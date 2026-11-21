@@ -1,5 +1,6 @@
 const API_KEY='perfusionlab.apiBase';
-const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'': '';
+const PREVIEW_API_BASE='https://perfusionlab-preview-api-orsn.onrender.com';
+const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'':PREVIEW_API_BASE;
 let apiBase=(localStorage.getItem(API_KEY)??defaultBase()).replace(/\/$/,'');
 const $=id=>document.getElementById(id);
 const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[],timeline:null,multivariateTimeline:null,mathReference:null};
@@ -11,7 +12,7 @@ const newCorrelationId=()=>globalThis.crypto?.randomUUID?.()||('corr-'+Date.now(
 function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3200)}
 async function request(path,options={}){const response=await fetch(url(path),{...options,headers:{'Content-Type':'application/json','X-Correlation-ID':newCorrelationId(),...(options.headers||{})}});if(!response.ok){let msg=response.status+' '+response.statusText;try{const t=await response.text();if(t)msg=t}catch{}throw new Error(msg)}if(response.status===204)return null;return response.json()}
 function setConnection(ok,label){$('connectionDot').parentElement.className='connection '+(ok?'online':'offline');$('connectionText').textContent=label}
-async function checkHealth(){try{await request('/api/v1/health');setConnection(true,'API conectada');return true}catch{setConnection(false,'API indisponível');return false}}
+async function checkHealth(){const submit=$('simulationForm')?.querySelector('button[type=submit]');try{const health=await request('/api/v1/health');const previewOnly=health.service==='perfusionlab-preview-api';if(submit){submit.disabled=previewOnly;submit.textContent=previewOnly?'Grid indisponível nesta API':'▶ Enviar para o grid'}setConnection(true,previewOnly?'API de prévia conectada':'API conectada');return true}catch{if(submit){submit.disabled=true;submit.textContent='API indisponível'}setConnection(false,'API indisponível');return false}}
 function go(view){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));document.querySelectorAll('.nav-item[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const names={overview:'Visão geral',simulate:'Nova simulação',jobs:'Experimentos',cluster:'Computação distribuída',settings:'Configurações'};$('pageTitle').textContent=names[view]||view;if(view==='jobs')loadJobs();if(view==='cluster')loadCluster();if(view==='overview')loadOverview();if(view==='settings')$('apiBaseInput').value=apiBase}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 async function loadJobs(){try{state.jobs=await request('/api/v1/simulations/jobs?limit=50');renderJobs();renderRecent()}catch(e){$('allJobs').innerHTML='<div class="empty">Não foi possível carregar jobs. '+esc(e.message)+'</div>';}}
