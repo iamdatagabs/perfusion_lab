@@ -82,7 +82,7 @@ The message contract accepts optional `targetNodeId` and `targetIncarnationId`. 
 
 ### Graceful worker drain
 
-Configure `PERFUSION_ADMIN_TOKEN` on the API service before using the operational endpoint. Drain a specific process incarnation (not merely a reusable node name):
+Configure `PERFUSION_ADMIN_TOKEN` on the API service before using the operational endpoint. Drain a specific process incarnation (not merely a reusable node name). Obtain the current `incarnationId` from the node inventory response and replace the example UUID:
 
 ~~~bash
 curl -X POST http://localhost:8080/api/v1/cluster/nodes/worker-a/drain \\
