@@ -20,58 +20,50 @@ public class SimulationJobWorker {
     private final SimulationJobStore store;
     private final WorkerNodeStore nodes;
     private final WorkerTelemetryCollector telemetryCollector;
-    private final String workerId = UUID.randomUUID().toString();
+    private final String workerId;
+    private final String nodeId;
+    private final UUID incarnationId = UUID.randomUUID();
     private final Instant startedAt = Instant.now();
     private final ExecutionProfile profile;
     private final String hostname;
-    private final int cpuCores;
-    private final int memoryMb;
-    private final int slots;
+    private final int cpuCores, memoryMb, slots;
 
-    public SimulationJobWorker(
-            SimplifiedPerfusionModel model,
-            SimulationJobStore store,
-            WorkerNodeStore nodes,
-            WorkerTelemetryCollector telemetryCollector,
+    public SimulationJobWorker(SimplifiedPerfusionModel model, SimulationJobStore store,
+            WorkerNodeStore nodes, WorkerTelemetryCollector telemetryCollector,
             @Value("${perfusion.worker.profile:GENERAL}") String profile,
+            @Value("${perfusion.worker.node-id:}") String configuredNodeId,
             @Value("${perfusion.worker.cpu-cores:1}") int cpuCores,
             @Value("${perfusion.worker.memory-mb:2048}") int memoryMb,
             @Value("${perfusion.worker.slots:1}") int slots) {
-        this.model = model;
-        this.store = store;
-        this.nodes = nodes;
+        this.model = model; this.store = store; this.nodes = nodes;
         this.telemetryCollector = telemetryCollector;
         this.profile = ExecutionProfile.valueOf(profile.toUpperCase());
         this.cpuCores = Math.max(1, cpuCores);
         this.memoryMb = Math.max(256, memoryMb);
         this.slots = Math.max(1, slots);
         String host;
-        try {
-            host = InetAddress.getLocalHost().getHostName();
-        } catch (Exception ignored) {
-            host = "unknown";
-        }
+        try { host = InetAddress.getLocalHost().getHostName(); }
+        catch (Exception ignored) { host = "unknown"; }
         this.hostname = host;
+        String resolved = configuredNodeId == null || configuredNodeId.isBlank()
+                ? host + "-" + this.profile.name().toLowerCase() : configuredNodeId.trim();
+        if (resolved.length() > 80)
+            throw new IllegalArgumentException("WORKER_NODE_ID must be at most 80 characters");
+        this.nodeId = resolved;
+        // The incarnation is part of workerId so a restarted process cannot reuse an old lease owner.
+        this.workerId = nodeId + ":" + incarnationId;
     }
 
     @PostConstruct
-    public void registerNode() {
-        publishHeartbeat();
-    }
+    public void registerNode() { publishHeartbeat(); }
 
     @RabbitListener(queues = "#{@workerQueueName}")
     public void execute(SimulationJobMessage message) {
-        if (message.executionProfile() != profile) {
+        if (message.executionProfile() != profile)
             throw new IllegalArgumentException("Message routed to worker with incompatible execution profile");
-        }
-        if (!store.markRunning(message.jobId(), workerId, LEASE)) {
-            return;
-        }
-        try {
-            store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input()));
-        } catch (Exception exception) {
-            store.markFailed(message.jobId(), workerId, exception);
-        }
+        if (!store.markRunning(message.jobId(), workerId, LEASE)) return;
+        try { store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input())); }
+        catch (Exception exception) { store.markFailed(message.jobId(), workerId, exception); }
     }
 
     @Scheduled(fixedDelayString = "${perfusion.worker.heartbeat-ms:30000}")
@@ -81,7 +73,7 @@ public class SimulationJobWorker {
     }
 
     private void publishHeartbeat() {
-        nodes.heartbeat(workerId, profile, hostname, cpuCores, memoryMb, slots,
-                startedAt, telemetryCollector.collect());
+        nodes.heartbeat(workerId, nodeId, incarnationId, profile, hostname,
+                cpuCores, memoryMb, slots, startedAt, telemetryCollector.collect());
     }
 }
