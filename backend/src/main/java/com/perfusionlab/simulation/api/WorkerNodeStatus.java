@@ -14,5 +14,8 @@ public record WorkerNodeStatus(
         int availableSlots,
         Instant startedAt,
         Instant heartbeatAt,
-        String softwareVersion
+        String softwareVersion,
+        Double systemCpuLoad,
+        long jvmHeapUsedMb,
+        long jvmHeapMaxMb
 ) {}

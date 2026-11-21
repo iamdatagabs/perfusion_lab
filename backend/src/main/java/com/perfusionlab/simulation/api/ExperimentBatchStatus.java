@@ -7,6 +7,8 @@ import java.util.UUID;
 public record ExperimentBatchStatus(
         UUID batchId,
         ExecutionProfile executionProfile,
+        RequestedExecutionProfile requestedExecutionProfile,
+        String schedulingReason,
         String state,
         int jobCount,
         int queued,

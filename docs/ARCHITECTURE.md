@@ -7,7 +7,9 @@ The API and worker are separate runtime roles built from the same Java 21 / Spri
 ~~~mermaid
 flowchart LR
   Client[Research Console / API Client] --> API[API container]
-  API --> DB[(PostgreSQL)]
+  API --> Planner[Execution planner]
+  Planner --> DB[(PostgreSQL)]
+  API --> DB
   API --> O[(Transactional Outbox)]
   O --> PUB[Outbox publisher]
   PUB -->|confirmed publish| EX[RabbitMQ exchange]
@@ -56,15 +58,15 @@ Flyway manages all schema changes.
 
 ## Grid profiles, batch orchestration and capacity registry
 
-The API accepts an experiment batch with up to 1,000 input scenarios, a declared execution profile and expected parallelism. It inserts the batch, all job rows and all outbox events in one database transaction. Each message carries its profile and the outbox publisher routes it to one of three durable queues:
+The API accepts an experiment batch with up to 1,000 input scenarios, a requested execution profile (AUTO, GENERAL, MEMORY or COMPUTE) and expected parallelism. AUTO evaluates fresh worker heartbeats, available slots, best-effort system CPU load and JVM heap pressure, then resolves to one concrete profile before persistence. The selected profile and decision reason are stored with the batch. If no live free slots are reported, AUTO falls back to GENERAL so work can remain queued. The API inserts the batch, all job rows and all outbox events in one database transaction. Each message carries its resolved profile and the outbox publisher routes it to one of three durable queues:
 
 - GENERAL: default lightweight tasks; retains the legacy queue name for compatibility.
 - MEMORY: tasks expected to need larger memory capacity.
 - COMPUTE: CPU-oriented tasks.
 
-Workers subscribe only to their configured profile queue. Compose provisions one example worker for each profile; each node declares CPU cores, RAM and concurrency slots through environment variables. The worker registry stores these declarations and heartbeats. The inventory endpoint reports active jobs and available slots; nodes with heartbeats older than two minutes are considered inactive.
+Workers subscribe only to their configured profile queue. Compose provisions one example worker for each profile; each node declares CPU cores, RAM and concurrency slots through environment variables. The worker registry stores these declarations and heartbeats. It also samples system CPU load where the JVM exposes it and JVM heap used/max values. The inventory endpoint reports active jobs and available slots; `/api/v1/cluster/capacity` aggregates capacity and telemetry by profile. Nodes with heartbeats older than two minutes are considered inactive.
 
-This is profile-based routing, not yet an autonomous scheduler: the API caller selects the profile, and RabbitMQ distributes work among consumers attached to that profile queue. A later scheduler can use the node registry and measured resource utilization to select nodes dynamically.
+This is profile-level resource-aware scheduling, not node pinning: the planner selects a profile queue and RabbitMQ distributes work among consumers attached to that queue. CPU load is a best-effort system-level value; heap values describe the JVM and must not be interpreted as physical or cgroup memory. The registry does not yet provide per-container CPU/memory telemetry or direct multi-host agent control.
 
 Batch status aggregates queued/running/succeeded/failed jobs and reports throughput. Speedup and parallel efficiency are computed only when the caller supplies a measured sequential baseline:
 
@@ -83,8 +85,7 @@ Workers are competing consumers on one durable queue. This is a useful horizonta
 - Add per-job heartbeat, cancellation and execution fencing for long-running tasks.
 - Add distributed tracing, structured logs, alerting and queue-age metrics.
 - Add experiment batches, model version pinning, random seeds and checksums.
-- Add automatic placement using live free slots, measured CPU/RAM utilization and node health.
-- Add multi-host agent registration, capability negotiation and resource-aware scheduling across local or cloud nodes.
+- Add container-aware CPU/memory telemetry, direct node-level placement and multi-host agent registration with capability negotiation.
 
 ## Bounded contexts
 

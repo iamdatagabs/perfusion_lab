@@ -21,7 +21,7 @@ def request_json(url, method="GET", payload=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8080")
-    parser.add_argument("--profile", choices=["GENERAL", "MEMORY", "COMPUTE"], default="GENERAL")
+    parser.add_argument("--profile", choices=["AUTO", "GENERAL", "MEMORY", "COMPUTE"], default="GENERAL")
     parser.add_argument("--jobs", type=int, default=100)
     parser.add_argument("--parallelism", type=int, default=4)
     parser.add_argument("--baseline-sequential-ms", type=int)
@@ -61,7 +61,9 @@ def main():
             elapsed = time.monotonic() - started
             print(json.dumps({
                 "batchId": batch_id,
-                "profile": args.profile,
+                "requestedProfile": args.profile,
+                "resolvedProfile": current.get("executionProfile"),
+                "schedulingReason": current.get("schedulingReason"),
                 "jobs": args.jobs,
                 "parallelism": args.parallelism,
                 "state": current["state"],
