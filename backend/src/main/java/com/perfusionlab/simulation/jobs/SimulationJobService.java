@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(name = "perfusion.role", havingValue = "api", matchIfMissing = true)
 public class SimulationJobService {
     public static final String EXCHANGE = "perfusionlab.simulation";
-    public static final String ROUTING_KEY = "simulation.execute";
+    public static final String ROUTING_KEY = "simulation.execute.general";
     private final SimulationJobStore store;
     private final OutboxEventStore outbox;
 
@@ -21,9 +21,14 @@ public class SimulationJobService {
 
     @Transactional
     public SimulationJobStatus submit(SimulationPreviewRequest input) {
+        return submit(input, ExecutionProfile.GENERAL);
+    }
+
+    @Transactional
+    public SimulationJobStatus submit(SimulationPreviewRequest input, ExecutionProfile profile) {
         UUID id = UUID.randomUUID();
-        SimulationJobStatus job = store.create(id, input);
-        outbox.enqueue(id, new SimulationJobMessage(id, input));
+        SimulationJobStatus job = store.create(id, input, null, profile);
+        outbox.enqueue(id, new SimulationJobMessage(id, input, profile));
         return job;
     }
 }
