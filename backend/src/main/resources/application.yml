@@ -4,8 +4,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${RABBITMQ_USER:perfusionlab}
+    password: ${RABBITMQ_PASSWORD:perfusionlab_dev}
 
 server:
   port: ${PORT:8080}
