@@ -1,1 +1,0 @@
--- Baseline migration reserved for future foundational schema objects.
