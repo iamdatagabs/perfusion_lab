@@ -100,9 +100,11 @@ public class WorkerNodeStore {
                 WITH node_load AS (
                     SELECT n.worker_id, n.execution_profile, n.slots, n.cpu_cores, n.memory_mb,
                            n.system_cpu_load, n.jvm_heap_used_mb, n.jvm_heap_max_mb,
-                           COUNT(j.job_id) FILTER (WHERE j.state IN ('QUEUED', 'RUNNING')
-                               AND j.target_node_id = n.node_id
-                               AND j.target_incarnation_id = n.incarnation_id) AS assigned_jobs
+                           COUNT(j.job_id) FILTER (
+                               WHERE (j.state = 'RUNNING' AND j.worker_id = n.worker_id)
+                                  OR (j.state = 'QUEUED' AND j.target_node_id = n.node_id
+                                      AND j.target_incarnation_id = n.incarnation_id)
+                           ) AS assigned_jobs
                     FROM worker_nodes n
                     LEFT JOIN simulation_jobs j
                       ON (j.worker_id = n.worker_id OR
