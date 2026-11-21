@@ -24,14 +24,14 @@ class SimulationJobStoreTest {
         assertEquals(SimulationJobStatus.State.QUEUED, queued.state());
         assertNotNull(queued.submittedAt());
         verify(jdbc).update(contains("INSERT INTO simulation_jobs"), eq(id),
-                any(java.sql.Timestamp.class), anyString(), isNull(), eq("GENERAL"));
+                any(java.sql.Timestamp.class), anyString(), isNull(), eq("GENERAL"), isNull(), isNull());
     }
 
     @Test
     void onlyOneWorkerCanClaimAQueuedJob() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(contains("UPDATE simulation_jobs"), anyString(), anyLong(), any(UUID.class)))
-                .thenReturn(1, 0);
+        when(jdbc.update(contains("UPDATE simulation_jobs"), anyString(), anyLong(),
+                any(UUID.class), anyString())).thenReturn(1, 0);
         SimulationJobStore store = new SimulationJobStore(jdbc, new ObjectMapper());
         UUID id = UUID.randomUUID();
 
