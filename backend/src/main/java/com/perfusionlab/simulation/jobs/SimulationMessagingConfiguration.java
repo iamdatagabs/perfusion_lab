@@ -14,6 +14,35 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SimulationMessagingConfiguration {
+    public static final String DEAD_LETTER_EXCHANGE = "perfusionlab.simulation.dlx";
+    public static final String DEAD_LETTER_QUEUE = "perfusionlab.simulation.dead";
+    public static final String DEAD_LETTER_ROUTING_KEY = "simulation.dead";
+
+    @Bean
+    DirectExchange simulationDeadLetterExchange() {
+        return new DirectExchange(DEAD_LETTER_EXCHANGE, true, false);
+    }
+
+    @Bean
+    Queue simulationDeadLetterQueue() {
+        return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
+    }
+
+    @Bean
+    Binding simulationDeadLetterBinding(
+            @Qualifier("simulationDeadLetterQueue") Queue simulationDeadLetterQueue,
+            @Qualifier("simulationDeadLetterExchange") DirectExchange simulationDeadLetterExchange) {
+        return BindingBuilder.bind(simulationDeadLetterQueue).to(simulationDeadLetterExchange)
+                .with(DEAD_LETTER_ROUTING_KEY);
+    }
+
+    private Queue durableWorkQueue(String name) {
+        return QueueBuilder.durable(name)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(DEAD_LETTER_ROUTING_KEY)
+                .build();
+    }
+
     @Bean
     DirectExchange simulationExchange() {
         return new DirectExchange(SimulationJobService.EXCHANGE, true, false);
@@ -21,17 +50,17 @@ public class SimulationMessagingConfiguration {
 
     @Bean
     Queue generalSimulationQueue() {
-        return QueueBuilder.durable(ExecutionProfile.GENERAL.queueName()).build();
+        return durableWorkQueue(ExecutionProfile.GENERAL.queueName());
     }
 
     @Bean
     Queue memorySimulationQueue() {
-        return QueueBuilder.durable(ExecutionProfile.MEMORY.queueName()).build();
+        return durableWorkQueue(ExecutionProfile.MEMORY.queueName());
     }
 
     @Bean
     Queue computeSimulationQueue() {
-        return QueueBuilder.durable(ExecutionProfile.COMPUTE.queueName()).build();
+        return durableWorkQueue(ExecutionProfile.COMPUTE.queueName());
     }
 
     @Bean
