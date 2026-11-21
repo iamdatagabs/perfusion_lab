@@ -57,17 +57,22 @@ public class SimulationJobStore {
 
     public boolean markRunning(UUID id, String workerId, Duration lease) {
         return jdbc.update("""
+                WITH eligible_node AS MATERIALIZED (
+                    SELECT worker_id, node_id, incarnation_id
+                    FROM worker_nodes
+                    WHERE worker_id = ? AND node_status = 'READY'
+                    FOR UPDATE
+                )
                 UPDATE simulation_jobs j
                 SET state = 'RUNNING', started_at = now(), worker_id = ?,
                     heartbeat_at = now(), lease_expires_at = now() + (? * interval '1 second'),
                     attempt_count = attempt_count + 1
-                FROM worker_nodes n
+                FROM eligible_node n
                 WHERE j.job_id = ? AND j.state = 'QUEUED'
-                  AND n.worker_id = ?
                   AND (j.target_node_id IS NULL OR
                        (j.target_node_id = n.node_id AND
                         j.target_incarnation_id = n.incarnation_id))
-                """, workerId, lease.toSeconds(), id, workerId) == 1;
+                """, workerId, workerId, lease.toSeconds(), id) == 1;
     }
 
     public void heartbeat(String workerId, Duration lease) {

@@ -30,8 +30,8 @@ class SimulationJobStoreTest {
     @Test
     void onlyOneWorkerCanClaimAQueuedJob() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        when(jdbc.update(contains("UPDATE simulation_jobs"), anyString(), anyLong(),
-                any(UUID.class), anyString())).thenReturn(1, 0);
+        when(jdbc.update(contains("UPDATE simulation_jobs"), anyString(), anyString(), anyLong(),
+                any(UUID.class))).thenReturn(1, 0);
         SimulationJobStore store = new SimulationJobStore(jdbc, new ObjectMapper());
         UUID id = UUID.randomUUID();
 

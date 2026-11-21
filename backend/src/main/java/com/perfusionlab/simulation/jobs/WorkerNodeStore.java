@@ -68,7 +68,7 @@ public class WorkerNodeStore {
                 VALUES (?, ?, ?, 'READY', ?, ?, ?, ?, ?, ?, now(), '0.1.0', ?, ?, ?)
                 ON CONFLICT (worker_id) DO UPDATE SET
                     node_id = EXCLUDED.node_id, incarnation_id = EXCLUDED.incarnation_id,
-                    node_status = 'READY', execution_profile = EXCLUDED.execution_profile,
+                    node_status = CASE WHEN worker_nodes.node_status IN ('DRAINING', 'OFFLINE') THEN worker_nodes.node_status ELSE 'READY' END, execution_profile = EXCLUDED.execution_profile,
                     hostname = EXCLUDED.hostname, cpu_cores = EXCLUDED.cpu_cores,
                     memory_mb = EXCLUDED.memory_mb, slots = EXCLUDED.slots,
                     heartbeat_at = now(), system_cpu_load = EXCLUDED.system_cpu_load,
@@ -133,6 +133,71 @@ public class WorkerNodeStore {
                 rs.getInt("total_cpu_cores"), rs.getLong("total_memory_mb"),
                 nullableDouble(rs, "average_system_cpu_load"),
                 nullableDouble(rs, "average_jvm_heap_pressure")));
+    }
+
+    public String nodeStatus(String nodeId, UUID incarnationId) {
+        return jdbc.query("SELECT node_status FROM worker_nodes WHERE node_id = ? AND incarnation_id = ?",
+                rs -> rs.next() ? rs.getString(1) : null, nodeId, incarnationId);
+    }
+
+    public int markDraining(String nodeId, UUID incarnationId) {
+        return jdbc.update("""
+                UPDATE worker_nodes SET node_status = 'DRAINING'
+                WHERE node_id = ? AND incarnation_id = ? AND node_status = 'READY'
+                """, nodeId, incarnationId);
+    }
+
+    /** Move waiting work back to the profile queues in the same transaction as drain. */
+    public int requeueWaitingAssignments(String nodeId, UUID incarnationId) {
+        return jdbc.update("""
+                WITH moved AS (
+                    UPDATE simulation_jobs
+                    SET target_node_id = NULL, target_incarnation_id = NULL
+                    WHERE state = 'QUEUED' AND target_node_id = ? AND target_incarnation_id = ?
+                    RETURNING job_id, input_json, execution_profile
+                )
+                INSERT INTO outbox_events
+                    (event_id, aggregate_id, event_type, payload, status, created_at, next_attempt_at)
+                SELECT gen_random_uuid(), job_id, 'SimulationJobRequested',
+                       jsonb_build_object('jobId', job_id, 'input', input_json,
+                           'executionProfile', execution_profile,
+                           'targetNodeId', NULL, 'targetIncarnationId', NULL),
+                       'PENDING', now(), now()
+                FROM moved
+                """, nodeId, incarnationId);
+    }
+
+    public int markOfflineIfIdle(String nodeId, UUID incarnationId) {
+        return jdbc.update("""
+                UPDATE worker_nodes n SET node_status = 'OFFLINE'
+                WHERE n.node_id = ? AND n.incarnation_id = ? AND n.node_status = 'DRAINING'
+                  AND NOT EXISTS (SELECT 1 FROM simulation_jobs j
+                                  WHERE j.worker_id = n.worker_id AND j.state = 'RUNNING')
+                """, nodeId, incarnationId);
+    }
+
+    public int completeIdleDrains() {
+        return jdbc.update("""
+                UPDATE worker_nodes n SET node_status = 'OFFLINE'
+                WHERE n.node_status = 'DRAINING'
+                  AND NOT EXISTS (SELECT 1 FROM simulation_jobs j
+                                  WHERE j.worker_id = n.worker_id AND j.state = 'RUNNING')
+                """);
+    }
+
+    public WorkerNodeDrainSnapshot drainSnapshot(String nodeId, UUID incarnationId, int reassigned) {
+        return jdbc.queryForObject("""
+                SELECT n.node_id, n.incarnation_id, n.node_status,
+                       (SELECT COUNT(*) FROM simulation_jobs j
+                        WHERE j.worker_id = n.worker_id AND j.state = 'RUNNING') AS running_jobs,
+                       (SELECT COUNT(*) FROM simulation_jobs j
+                        WHERE j.target_node_id = n.node_id AND j.target_incarnation_id = n.incarnation_id
+                          AND j.state = 'QUEUED') AS queued_assignments
+                FROM worker_nodes n WHERE n.node_id = ? AND n.incarnation_id = ?
+                """, (rs, rowNum) -> new WorkerNodeDrainSnapshot(
+                rs.getString("node_id"), rs.getObject("incarnation_id", UUID.class),
+                rs.getString("node_status"), reassigned, rs.getInt("running_jobs"),
+                rs.getInt("queued_assignments")), nodeId, incarnationId);
     }
 
     private WorkerNodeStatus map(ResultSet rs, int rowNum) throws SQLException {
