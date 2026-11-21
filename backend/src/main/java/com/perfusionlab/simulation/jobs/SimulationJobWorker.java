@@ -11,6 +11,8 @@ import org.springframework.amqp.core.Binding.DestinationType;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.ImmediateRequeueAmqpException;
+import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,6 +30,7 @@ public class SimulationJobWorker {
     private final WorkerNodeStore nodes;
     private final WorkerTelemetryCollector telemetryCollector;
     private final RabbitAdmin rabbitAdmin;
+    private final RabbitListenerEndpointRegistry listenerRegistry;
     private final String workerId;
     private final String nodeId;
     private final UUID incarnationId = UUID.randomUUID();
@@ -38,7 +41,7 @@ public class SimulationJobWorker {
 
     public SimulationJobWorker(SimplifiedPerfusionModel model, SimulationJobStore store,
             WorkerNodeStore nodes, WorkerTelemetryCollector telemetryCollector,
-            RabbitAdmin rabbitAdmin,
+            RabbitAdmin rabbitAdmin, RabbitListenerEndpointRegistry listenerRegistry,
             @Value("${perfusion.worker.profile:GENERAL}") String profile,
             @Value("${perfusion.worker.node-id:}") String configuredNodeId,
             @Value("${perfusion.worker.cpu-cores:1}") int cpuCores,
@@ -46,6 +49,7 @@ public class SimulationJobWorker {
             @Value("${perfusion.worker.slots:1}") int slots) {
         this.model = model; this.store = store; this.nodes = nodes;
         this.telemetryCollector = telemetryCollector; this.rabbitAdmin = rabbitAdmin;
+        this.listenerRegistry = listenerRegistry;
         this.profile = ExecutionProfile.valueOf(profile.toUpperCase());
         this.cpuCores = Math.max(1, cpuCores);
         this.memoryMb = Math.max(256, memoryMb);
@@ -81,7 +85,7 @@ public class SimulationJobWorker {
         publishHeartbeat();
     }
 
-    @RabbitListener(queues = {"#{@workerQueueName}", "#{@simulationJobWorker.nodeQueueName}"})
+    @RabbitListener(id = "workerListener", queues = {"#{@workerQueueName}", "#{@simulationJobWorker.nodeQueueName}"})
     public void execute(SimulationJobMessage message) {
         if (message.executionProfile() != profile)
             throw new IllegalArgumentException("Message routed to worker with incompatible execution profile");
@@ -89,7 +93,16 @@ public class SimulationJobWorker {
         // obsolete or misdirected target messages instead of requeueing poison messages.
         if (message.targetNodeId() != null && !message.targetNodeId().equals(nodeId)) return;
         if (message.targetIncarnationId() != null && !message.targetIncarnationId().equals(incarnationId)) return;
-        if (!store.markRunning(message.jobId(), workerId, LEASE)) return;
+        if (!store.markRunning(message.jobId(), workerId, LEASE)) {
+            // Profile queues are shared by all nodes. If this node has entered
+            // DRAINING, return untargeted work to the broker for another READY
+            // consumer instead of acknowledging and losing it.
+            if (message.targetNodeId() == null
+                    && !"READY".equals(nodes.nodeStatus(nodeId, incarnationId))) {
+                throw new ImmediateRequeueAmqpException("Worker node is draining; return shared work to the queue");
+            }
+            return;
+        }
         try { store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input())); }
         catch (Exception exception) { store.markFailed(message.jobId(), workerId, exception); }
     }
@@ -98,6 +111,10 @@ public class SimulationJobWorker {
     public void heartbeat() {
         store.heartbeat(workerId, LEASE);
         publishHeartbeat();
+        if (!"READY".equals(nodes.nodeStatus(nodeId, incarnationId))) {
+            var container = listenerRegistry.getListenerContainer("workerListener");
+            if (container != null && container.isRunning()) container.stop();
+        }
     }
 
     private void publishHeartbeat() {
