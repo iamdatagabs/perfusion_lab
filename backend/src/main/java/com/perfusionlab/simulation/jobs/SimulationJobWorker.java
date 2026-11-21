@@ -10,6 +10,9 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.Binding.DestinationType;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
@@ -31,6 +34,7 @@ public class SimulationJobWorker {
     private final WorkerTelemetryCollector telemetryCollector;
     private final RabbitAdmin rabbitAdmin;
     private final RabbitListenerEndpointRegistry listenerRegistry;
+    private final MeterRegistry meters;
     private final String workerId;
     private final String nodeId;
     private final UUID incarnationId = UUID.randomUUID();
@@ -41,7 +45,7 @@ public class SimulationJobWorker {
 
     public SimulationJobWorker(SimplifiedPerfusionModel model, SimulationJobStore store,
             WorkerNodeStore nodes, WorkerTelemetryCollector telemetryCollector,
-            RabbitAdmin rabbitAdmin, RabbitListenerEndpointRegistry listenerRegistry,
+            RabbitAdmin rabbitAdmin, RabbitListenerEndpointRegistry listenerRegistry, MeterRegistry meters,
             @Value("${perfusion.worker.profile:GENERAL}") String profile,
             @Value("${perfusion.worker.node-id:}") String configuredNodeId,
             @Value("${perfusion.worker.cpu-cores:1}") int cpuCores,
@@ -49,7 +53,7 @@ public class SimulationJobWorker {
             @Value("${perfusion.worker.slots:1}") int slots) {
         this.model = model; this.store = store; this.nodes = nodes;
         this.telemetryCollector = telemetryCollector; this.rabbitAdmin = rabbitAdmin;
-        this.listenerRegistry = listenerRegistry;
+        this.listenerRegistry = listenerRegistry; this.meters = meters;
         this.profile = ExecutionProfile.valueOf(profile.toUpperCase());
         this.cpuCores = Math.max(1, cpuCores);
         this.memoryMb = Math.max(256, memoryMb);
@@ -79,7 +83,9 @@ public class SimulationJobWorker {
     public void registerNode() {
         // Provision the node-specific durable queue before advertising this node as READY.
         rabbitAdmin.declareExchange(new DirectExchange(SimulationJobService.EXCHANGE, true, false));
-        rabbitAdmin.declareQueue(new Queue(getNodeQueueName(), true));
+        rabbitAdmin.declareQueue(QueueBuilder.durable(getNodeQueueName())
+                .deadLetterExchange(SimulationMessagingConfiguration.DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(SimulationMessagingConfiguration.DEAD_LETTER_ROUTING_KEY).build());
         rabbitAdmin.declareBinding(new Binding(getNodeQueueName(), DestinationType.QUEUE,
                 SimulationJobService.EXCHANGE, getNodeRoutingKey(), null));
         publishHeartbeat();
@@ -87,8 +93,12 @@ public class SimulationJobWorker {
 
     @RabbitListener(id = "workerListener", queues = {"#{@workerQueueName}", "#{@simulationJobWorker.nodeQueueName}"})
     public void execute(SimulationJobMessage message) {
-        if (message.executionProfile() != profile)
+        meters.counter("perfusionlab.worker.messages", "profile", profile.name(), "outcome", "received").increment();
+        Timer.Sample sample = Timer.start(meters);
+        if (message.executionProfile() != profile) {
+            meters.counter("perfusionlab.worker.messages", "profile", profile.name(), "outcome", "rejected").increment();
             throw new IllegalArgumentException("Message routed to worker with incompatible execution profile");
+        }
         // A durable node queue can outlive a process incarnation. Acknowledge
         // obsolete or misdirected target messages instead of requeueing poison messages.
         if (message.targetNodeId() != null && !message.targetNodeId().equals(nodeId)) return;
@@ -103,8 +113,16 @@ public class SimulationJobWorker {
             }
             return;
         }
-        try { store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input())); }
-        catch (Exception exception) { store.markFailed(message.jobId(), workerId, exception); }
+        try {
+            store.markSucceeded(message.jobId(), workerId, model.evaluate(message.input()));
+            meters.counter("perfusionlab.worker.messages", "profile", profile.name(), "outcome", "succeeded").increment();
+        } catch (Exception exception) {
+            store.markFailed(message.jobId(), workerId, exception);
+            meters.counter("perfusionlab.worker.messages", "profile", profile.name(), "outcome", "failed").increment();
+        } finally {
+            sample.stop(Timer.builder("perfusionlab.worker.execution")
+                    .tag("profile", profile.name()).register(meters));
+        }
     }
 
     @Scheduled(fixedDelayString = "${perfusion.worker.heartbeat-ms:30000}")
