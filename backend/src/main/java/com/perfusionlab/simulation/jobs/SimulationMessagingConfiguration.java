@@ -1,6 +1,7 @@
 package com.perfusionlab.simulation.jobs;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SimulationMessagingConfiguration {
     @Bean
+    @ConditionalOnMissingBean(RabbitAdmin.class)
     RabbitAdmin simulationRabbitAdmin(ConnectionFactory connectionFactory) {
         RabbitAdmin admin = new RabbitAdmin(connectionFactory);
         admin.setAutoStartup(true);
