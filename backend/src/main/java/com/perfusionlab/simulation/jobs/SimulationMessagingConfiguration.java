@@ -3,6 +3,7 @@ package com.perfusionlab.simulation.jobs;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
+import java.net.InetAddress;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.core.Binding;
@@ -95,6 +96,22 @@ public class SimulationMessagingConfiguration {
     @Bean
     String workerQueueName(@Value("${perfusion.worker.profile:GENERAL}") String profile) {
         return ExecutionProfile.valueOf(profile.toUpperCase()).queueName();
+    }
+
+    @Bean
+    String workerNodeQueueName(
+            @Value("${perfusion.worker.node-id:}") String configuredNodeId,
+            @Value("${perfusion.worker.profile:GENERAL}") String profile) {
+        String host;
+        try { host = InetAddress.getLocalHost().getHostName(); }
+        catch (Exception ignored) { host = "unknown"; }
+        String resolved = configuredNodeId == null || configuredNodeId.isBlank()
+                ? host + "-" + profile.toLowerCase()
+                : configuredNodeId.trim();
+        if (!resolved.matches("[A-Za-z0-9_-]{1,80}")) {
+            throw new IllegalArgumentException("WORKER_NODE_ID must contain only letters, digits, '_' or '-' and be at most 80 characters");
+        }
+        return "perfusionlab.simulation.node." + resolved;
     }
 
     @Bean
