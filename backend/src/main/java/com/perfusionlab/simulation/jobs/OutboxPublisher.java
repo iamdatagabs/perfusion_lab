@@ -20,7 +20,6 @@ public class OutboxPublisher {
 
     @Scheduled(fixedDelayString = "${perfusion.outbox.poll-ms:500}")
     public void publishPending() {
-        // Bounded drain prevents a single scheduler tick from monopolizing the API.
         for (int i = 0; i < 50; i++) {
             var candidate = outbox.claimNext();
             if (candidate.isEmpty()) return;
@@ -29,7 +28,7 @@ public class OutboxPublisher {
                 CorrelationData correlation = new CorrelationData(event.eventId().toString());
                 rabbit.convertAndSend(
                         SimulationJobService.EXCHANGE,
-                        SimulationJobService.ROUTING_KEY,
+                        event.message().executionProfile().routingKey(),
                         event.message(),
                         correlation);
                 CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
