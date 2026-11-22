@@ -170,10 +170,15 @@ private fun PerfusionLabApp() {
                             Metric("Concentração de saída", "%.4f".format(simulation.outletConcentration))
                             Metric("Passo temporal PDE", "%.5f s".format(simulation.pdeTimeStepSeconds))
                         }
-                        Text("Perfil espacial final", fontWeight = FontWeight.SemiBold)
+                        Text("Perfil espacial final de concentração", fontWeight = FontWeight.SemiBold)
                         TimeSeriesChart(
                             simulation.finalConcentrationProfile.map { it.xMm.toFloat() to it.concentration.toFloat() },
                             Mint
+                        )
+                        Text("Velocidade axial derivada de Q(t)/A", fontWeight = FontWeight.SemiBold)
+                        TimeSeriesChart(
+                            simulation.velocityTrajectory.map { it.timeSeconds.toFloat() to it.axialVelocityMmPerSecond.toFloat() },
+                            Cyan
                         )
                         Text(simulation.couplingDescription, color = Muted)
                         Text(simulation.limitations, color = Color(0xFFFFD58A), style = MaterialTheme.typography.bodySmall)
