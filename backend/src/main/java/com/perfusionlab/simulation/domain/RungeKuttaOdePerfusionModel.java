@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Low-dimensional educational ODE model integrated with fixed-step RK4.
@@ -23,7 +25,7 @@ public class RungeKuttaOdePerfusionModel {
         double dt = input.stepSeconds();
         int steps = (int) Math.ceil(input.durationSeconds() / dt);
         if (steps + 1 > MAX_POINTS) {
-            throw new IllegalArgumentException("Simulation exceeds 3601 points; increase stepSeconds.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Simulation exceeds 3601 points; increase stepSeconds.");
         }
 
         // State vector: [flow (L/min), arterial-equivalent pressure (mmHg)].
@@ -32,11 +34,20 @@ public class RungeKuttaOdePerfusionModel {
         double time = 0.0;
         points.add(point(time, state, input));
 
+        double resistance = input.systemicVascularResistance() / SVR_DYN_TO_MMHG_S_PER_ML;
+        double pressureTimeConstant = resistance * input.arterialComplianceMlPerMmHg();
+        double stableInternalStep = Math.min(input.flowTimeConstantSeconds(), pressureTimeConstant) / 5.0;
+
         for (int i = 0; i < steps; i++) {
-            double h = Math.min(dt, input.durationSeconds() - time);
-            state = rk4(time, state, h, input);
-            time += h;
-            if (Math.abs(time - input.durationSeconds()) < 1e-9) time = input.durationSeconds();
+            double outputInterval = Math.min(dt, input.durationSeconds() - time);
+            double remaining = outputInterval;
+            while (remaining > 1e-12) {
+                double h = Math.min(stableInternalStep, remaining);
+                state = rk4(time, state, h, input);
+                time += h;
+                remaining -= h;
+            }
+            if (Math.abs(time - input.durationSeconds()) < 1e-8) time = input.durationSeconds();
             points.add(point(time, state, input));
         }
 
@@ -91,7 +102,7 @@ public class RungeKuttaOdePerfusionModel {
     }
 
     private void validate(OdeSimulationRequest p) {
-        if (p == null) throw new IllegalArgumentException("Request is required.");
+        if (p == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request is required.");
         if (p.durationSeconds() / p.stepSeconds() > MAX_POINTS - 1) {
             throw new IllegalArgumentException("Simulation exceeds 3601 points; increase stepSeconds.");
         }
