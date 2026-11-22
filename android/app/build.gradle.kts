@@ -8,6 +8,13 @@ val perfusionApiBaseUrl = providers.gradleProperty("PERFUSIONLAB_API_BASE_URL")
 android {
     namespace = "com.perfusionlab.mobile"
     compileSdk = 35
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
     defaultConfig {
         applicationId = "com.perfusionlab.mobile"
         minSdk = 26
