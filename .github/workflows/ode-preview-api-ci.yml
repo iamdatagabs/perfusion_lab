@@ -1,0 +1,35 @@
+name: ODE Preview API CI
+
+on:
+  push:
+    branches: [main, feat/standalone-ode-preview-api]
+    paths:
+      - "backend/ode-preview/**"
+      - "backend/src/main/java/com/perfusionlab/PerfusionLabApplication.java"
+      - "backend/src/main/java/com/perfusionlab/platform/api/HealthController.java"
+      - "backend/src/main/java/com/perfusionlab/simulation/api/OdeSimulation*.java"
+      - "backend/src/main/java/com/perfusionlab/simulation/domain/RungeKuttaOdePerfusionModel.java"
+      - ".github/workflows/ode-preview-api-ci.yml"
+  pull_request:
+    paths:
+      - "backend/ode-preview/**"
+      - "backend/src/main/java/com/perfusionlab/PerfusionLabApplication.java"
+      - "backend/src/main/java/com/perfusionlab/platform/api/HealthController.java"
+      - "backend/src/main/java/com/perfusionlab/simulation/api/OdeSimulation*.java"
+      - "backend/src/main/java/com/perfusionlab/simulation/domain/RungeKuttaOdePerfusionModel.java"
+      - ".github/workflows/ode-preview-api-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Test isolated ODE preview API
+        run: mvn --batch-mode --no-transfer-progress -f backend/ode-preview/pom.xml verify
+      - name: Build Docker image
+        run: docker build -f backend/ode-preview/Dockerfile -t perfusionlab-ode-preview:ci .
