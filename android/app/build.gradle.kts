@@ -16,6 +16,11 @@ android {
         versionName = "0.3.0"
         buildConfigField("String", "API_BASE_URL", "\"$perfusionApiBaseUrl\"")
     }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
 }
 dependencies {
