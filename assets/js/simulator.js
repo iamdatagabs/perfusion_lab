@@ -122,7 +122,7 @@ if (typeof document !== "undefined") {
 const COUPLED_API_KEY = "perfusionlab.coupledApiBase";
 function initializeCoupledExperiment(root = document) {
   const byId = id => root.getElementById(id);
-  const required = ["coupledApiBase", "saveCoupledApi", "runCoupled", "coupledResults", "coupledProfileChart"];
+  const required = ["coupledApiBase", "saveCoupledApi", "runCoupled", "coupledResults", "coupledProfileChart", "coupledVelocityChart"];
   if (!required.every(id => byId(id))) return false;
   const saved = localStorage.getItem(COUPLED_API_KEY) || "";
   byId("coupledApiBase").value = saved;
@@ -153,8 +153,8 @@ function initializeCoupledExperiment(root = document) {
     minimumFractionDigits: digits, maximumFractionDigits: digits
   });
 
-  function drawProfile(profile) {
-    const canvas = byId("coupledProfileChart");
+  function drawSeries(canvasId, points, xKey, yKey, xLabel) {
+    const canvas = byId(canvasId);
     const rect = canvas.getBoundingClientRect();
     const width = Math.max(320, rect.width || 640);
     const height = 180;
@@ -166,20 +166,27 @@ function initializeCoupledExperiment(root = document) {
     ctx.clearRect(0, 0, width, height);
     const left = 42, right = 14, top = 12, bottom = 28;
     const plotW = width - left - right, plotH = height - top - bottom;
+    const xMin = Math.min(...points.map(point => point[xKey]));
+    const xMax = Math.max(...points.map(point => point[xKey]));
+    const yMin = Math.min(...points.map(point => point[yKey]));
+    const yMax = Math.max(...points.map(point => point[yKey]));
     ctx.strokeStyle = "rgba(155,179,194,.35)";
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left, top + plotH); ctx.lineTo(width-right, top+plotH); ctx.stroke();
     ctx.fillStyle = "#9bb3c2"; ctx.font = "10px system-ui";
-    ctx.fillText("1,0", 8, top+4); ctx.fillText("0,0", 8, top+plotH+3);
-    ctx.fillText("x (mm)", width-48, height-6);
+    ctx.fillText(fmtCoupled(yMax, 2), 4, top+4);
+    ctx.fillText(fmtCoupled(yMin, 2), 4, top+plotH+3);
+    ctx.fillText(xLabel, width-48, height-6);
     ctx.strokeStyle = "#55d6df"; ctx.lineWidth = 2.5; ctx.beginPath();
-    profile.forEach((point, index) => {
-      const x = left + (point.xMm / Math.max(profile[profile.length-1].xMm, 1e-9)) * plotW;
-      const y = top + (1 - point.concentration) * plotH;
+    points.forEach((point, index) => {
+      const x = left + ((point[xKey] - xMin) / Math.max(xMax - xMin, 1e-9)) * plotW;
+      const y = top + (1 - (point[yKey] - yMin) / Math.max(yMax - yMin, 1e-9)) * plotH;
       if (index === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke();
   }
+  function drawProfile(profile) { drawSeries("coupledProfileChart", profile, "xMm", "concentration", "x (mm)"); }
+  function drawVelocity(trajectory) { drawSeries("coupledVelocityChart", trajectory, "timeSeconds", "axialVelocityMmPerSecond", "t (s)"); }
 
   byId("runCoupled").addEventListener("click", async () => {
     const base = byId("coupledApiBase").value.trim().replace(/\/$/, "");
@@ -226,6 +233,7 @@ function initializeCoupledExperiment(root = document) {
       byId("coupledModelInfo").textContent = result.modelVersion + " · " + result.spatialNodes + " nós · " + result.odeTrajectory.length + " pontos ODE. " + result.couplingDescription + " " + result.limitations;
       byId("coupledResults").hidden = false;
       drawProfile(result.finalConcentrationProfile);
+      drawVelocity(result.velocityTrajectory);
       byId("coupledRunStatus").textContent = "Simulação concluída. Resultados recebidos da API.";
     } catch (error) {
       byId("coupledRunStatus").textContent = "Falha na execução: " + error.message + ". Confirme se a API Spring Boot está implantada e permite CORS para este domínio.";
