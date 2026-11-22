@@ -10,3 +10,15 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
+
+  - type: web
+    name: perfusionlab-ode-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./backend/ode-preview/Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=75.0
