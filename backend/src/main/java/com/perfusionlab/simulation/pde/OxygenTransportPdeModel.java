@@ -16,7 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @Component
 public class OxygenTransportPdeModel {
-    public static final String MODEL_VERSION = "0.2.0-pde-transport";
+    public static final String MODEL_VERSION = "0.3.0-pde-transport";
     private static final double SAFETY_FACTOR = 0.80;
     private static final long MAX_STEPS = 2_000_000L;
 
@@ -28,7 +28,7 @@ public class OxygenTransportPdeModel {
         double diffusion = p.dispersionMm2PerSecond();
         double reaction = p.consumptionRatePerSecond();
 
-        // Sufficient monotonicity bound for forward Euler + upwind advection + central diffusion.
+        // Forward-Euler monotonicity bound; SSP-RK2 inherits this strong-stability limit.
         double rate = u / dx + 2.0 * diffusion / (dx * dx) + reaction;
         double dt = rate > 0.0 ? SAFETY_FACTOR / rate : p.durationSeconds();
         long steps = (long) Math.ceil(p.durationSeconds() / dt);
@@ -38,36 +38,27 @@ public class OxygenTransportPdeModel {
         }
         dt = p.durationSeconds() / Math.max(1L, steps);
 
-        double[] c = new double[n];
+        double[] state = new double[n];
+        double[] stage = new double[n];
+        double[] secondStage = new double[n];
         double[] next = new double[n];
         if (p.initialProfile() == null) {
-            for (int i = 0; i < n; i++) c[i] = p.initialConcentration();
+            for (int i = 0; i < n; i++) state[i] = p.initialConcentration();
         } else {
-            for (int i = 0; i < n; i++) c[i] = p.initialProfile().get(i);
+            for (int i = 0; i < n; i++) state[i] = p.initialProfile().get(i);
         }
-        c[0] = p.inletConcentration();
+        state[0] = p.inletConcentration();
 
+        // SSP-RK2 (Heun): second-order time integration as a convex combination
+        // of two forward-Euler stages, preserving the forward-Euler monotonicity bound.
         for (long step = 0; step < steps; step++) {
-            next[0] = p.inletConcentration(); // Dirichlet inlet.
-            for (int i = 1; i < n - 1; i++) {
-                double gradient = u >= 0.0
-                    ? (c[i] - c[i - 1]) / dx
-                    : (c[i + 1] - c[i]) / dx;
-                double laplacian = (c[i + 1] - 2.0 * c[i] + c[i - 1]) / (dx * dx);
-                double dc = -u * gradient + diffusion * laplacian
-                    - reaction * (c[i] - p.equilibriumConcentration());
-                next[i] = c[i] + dt * dc;
+            forwardEuler(state, stage, p, dx, dt, u, diffusion, reaction);
+            forwardEuler(stage, secondStage, p, dx, dt, u, diffusion, reaction);
+            for (int i = 0; i < n; i++) {
+                next[i] = 0.5 * state[i] + 0.5 * secondStage[i];
             }
-
-            // Neumann outlet via a mirrored ghost node: dC/dx = 0 at x=L.
-            double outletLaplacian = diffusion > 0.0
-                ? 2.0 * (c[n - 2] - c[n - 1]) / (dx * dx) : 0.0;
-            double outletRate = outletLaplacian
-                - reaction * (c[n - 1] - p.equilibriumConcentration());
-            next[n - 1] = c[n - 1] + dt * outletRate;
-
-            double[] swap = c;
-            c = next;
+            double[] swap = state;
+            state = next;
             next = swap;
         }
 
@@ -75,23 +66,47 @@ public class OxygenTransportPdeModel {
         double max = Double.NEGATIVE_INFINITY;
         List<PdeTransportResponse.Point> profile = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            if (!Double.isFinite(c[i]) || c[i] < -1e-8 || c[i] > 1.0 + 1e-8) {
+            if (!Double.isFinite(state[i]) || state[i] < -1e-8 || state[i] > 1.0 + 1e-8) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Numerical solution left the normalized concentration range; refine the grid or review parameters.");
             }
-            min = Math.min(min, c[i]);
-            max = Math.max(max, c[i]);
-            profile.add(new PdeTransportResponse.Point(round(i * dx), round(c[i])));
+            min = Math.min(min, state[i]);
+            max = Math.max(max, state[i]);
+            profile.add(new PdeTransportResponse.Point(round(i * dx), round(state[i])));
         }
 
         return new PdeTransportResponse(
-            MODEL_VERSION, "FORWARD_EULER_UPWIND_CENTRAL_DIFFUSION", Instant.now(),
+            MODEL_VERSION, "SSP_RK2_UPWIND_CENTRAL_DIFFUSION", Instant.now(),
             p.domainLengthMm(), n, dx, dt, p.durationSeconds(),
-            p.inletConcentration(), round(c[n - 1]), round(min), round(max),
+            p.inletConcentration(), round(state[n - 1]), round(min), round(max),
             List.copyOf(profile),
             "Inlet: prescribed concentration (Dirichlet). Outlet: zero spatial gradient (Neumann), implemented with a mirrored ghost node. Initial field: uniform or user-supplied nodal profile.",
-            "Dimensionless one-dimensional convection-diffusion-reaction prototype. Consumption is represented by a first-order relaxation term; no capillary geometry, hemoglobin dissociation, membrane exchange, heterogeneous tissue, or patient-specific physiology. Educational/research use only; not clinically validated."
+            "Dimensionless one-dimensional convection-diffusion-reaction prototype. Time integration uses SSP-RK2; advection is first-order upwind and diffusion is second-order central. Consumption is a first-order relaxation term, not measured metabolic uptake. No capillary geometry, hemoglobin dissociation, membrane exchange, heterogeneous tissue, or patient-specific physiology. Educational/research use only; not clinically validated."
         );
+    }
+
+    private void forwardEuler(
+        double[] current, double[] result, PdeTransportRequest p,
+        double dx, double dt, double u, double diffusion, double reaction
+    ) {
+        int n = current.length;
+        result[0] = p.inletConcentration();
+        for (int i = 1; i < n - 1; i++) {
+            double gradient = u >= 0.0
+                ? (current[i] - current[i - 1]) / dx
+                : (current[i + 1] - current[i]) / dx;
+            double laplacian = (current[i + 1] - 2.0 * current[i] + current[i - 1]) / (dx * dx);
+            double derivative = -u * gradient + diffusion * laplacian
+                - reaction * (current[i] - p.equilibriumConcentration());
+            result[i] = current[i] + dt * derivative;
+        }
+
+        // Neumann outlet: mirrored ghost node gives dC/dx = 0 at x=L.
+        double outletLaplacian = diffusion > 0.0
+            ? 2.0 * (current[n - 2] - current[n - 1]) / (dx * dx) : 0.0;
+        double outletDerivative = diffusion * outletLaplacian
+            - reaction * (current[n - 1] - p.equilibriumConcentration());
+        result[n - 1] = current[n - 1] + dt * outletDerivative;
     }
 
     private void validate(PdeTransportRequest p) {
