@@ -48,7 +48,10 @@ private fun PerfusionLabApp() {
     var compliance by remember { mutableFloatStateOf(2f) }
     var tau by remember { mutableFloatStateOf(3f) }
     var duration by remember { mutableFloatStateOf(60f) }
+    var effectiveArea by remember { mutableFloatStateOf(10000f) }
+    var dispersion by remember { mutableFloatStateOf(.15f) }
     var result by remember { mutableStateOf<OdeSimulationResponse?>(null) }
+    var coupledResult by remember { mutableStateOf<CoupledSimulationResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -71,6 +74,9 @@ private fun PerfusionLabApp() {
                     ParameterSlider("Complacência arterial", compliance, .1f..10f, "%.2f mL/mmHg".format(compliance)) { compliance = it }
                     ParameterSlider("Constante de tempo do fluxo", tau, .1f..60f, "%.1f s".format(tau)) { tau = it }
                     ParameterSlider("Duração", duration, 1f..300f, "%.0f s".format(duration)) { duration = it }
+                    Text("Acoplamento ODE–PDE", color = Mint, fontWeight = FontWeight.SemiBold)
+                    ParameterSlider("Área transversal efetiva", effectiveArea, 1000f..100000f, "%.0f mm²".format(effectiveArea)) { effectiveArea = it }
+                    ParameterSlider("Dispersão efetiva", dispersion, 0f..1f, "%.2f mm²/s".format(dispersion)) { dispersion = it }
                     Button(enabled = !loading, onClick = {
                         loading = true; error = null; result = null
                         scope.launch {
@@ -85,12 +91,42 @@ private fun PerfusionLabApp() {
                             } finally { loading = false }
                         }
                     }, modifier = Modifier.fillMaxWidth()) {
-                        if (loading) CircularProgressIndicator() else Text("Executar simulação")
+                        if (loading) CircularProgressIndicator() else Text("Executar simulação ODE")
+                    }
+                    Button(enabled = !loading, onClick = {
+                        loading = true; error = null; coupledResult = null
+                        scope.launch {
+                            try {
+                                val odeRequest = OdeSimulationRequest(
+                                    initialFlow.toDouble(), targetFlow.toDouble(), hemoglobin.toDouble(),
+                                    saturation.toDouble(), svr.toDouble(), bsa.toDouble(), compliance.toDouble(),
+                                    tau.toDouble(), 5.0, duration.toDouble(), .1
+                                )
+                                coupledResult = ApiClient.service.runCoupledPreview(
+                                    CoupledSimulationRequest(
+                                        ode = odeRequest,
+                                        effectiveCrossSectionAreaMm2 = effectiveArea.toDouble(),
+                                        domainLengthMm = 20.0,
+                                        dispersionMm2PerSecond = dispersion.toDouble(),
+                                        consumptionRatePerSecond = .025,
+                                        equilibriumConcentration = .25,
+                                        initialConcentration = .2,
+                                        inletConcentration = .95,
+                                        spatialNodes = 81
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                error = e.message ?: "Não foi possível executar o acoplamento ODE–PDE."
+                            } finally { loading = false }
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        if (loading) CircularProgressIndicator() else Text("Executar acoplamento ODE–PDE")
                     }
                     OutlinedButton(onClick = {
                         initialFlow=3f; targetFlow=4.8f; hemoglobin=10f; saturation=.98f
                         svr=1200f; bsa=1.9f; compliance=2f; tau=3f; duration=60f
-                        result=null; error=null
+                        effectiveArea=10000f; dispersion=.15f
+                        result=null; coupledResult=null; error=null
                     }, modifier = Modifier.fillMaxWidth()) { Text("Restaurar parâmetros") }
                 }
             }
@@ -121,13 +157,36 @@ private fun PerfusionLabApp() {
                     }
                 }
             }
+            coupledResult?.let { simulation ->
+                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Resultados do acoplamento ODE–PDE", style = MaterialTheme.typography.titleLarge)
+                        Text("Modelo " + simulation.modelVersion + " · SSP-RK2", color = Mint)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Metric("Velocidade axial máxima", "%.2f mm/s".format(simulation.maximumAxialVelocityMmPerSecond))
+                            Metric("Velocidade média", "%.2f mm/s".format(simulation.meanAxialVelocityMmPerSecond))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Metric("Concentração de saída", "%.4f".format(simulation.outletConcentration))
+                            Metric("Passo temporal PDE", "%.5f s".format(simulation.pdeTimeStepSeconds))
+                        }
+                        Text("Perfil espacial final", fontWeight = FontWeight.SemiBold)
+                        TimeSeriesChart(
+                            simulation.finalConcentrationProfile.map { it.xMm.toFloat() to it.concentration.toFloat() },
+                            Mint
+                        )
+                        Text(simulation.couplingDescription, color = Muted)
+                        Text(simulation.limitations, color = Color(0xFFFFD58A), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2418))) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Uso educacional e de pesquisa", color = Color(0xFFFFD58A), fontWeight = FontWeight.Bold)
                     Text("Protótipo sem validação clínica. Não utilizar para decisões assistenciais, ajuste de bomba ou manejo de pacientes.", color = Color(0xFFFFE8C2))
                 }
             }
-            Text("PerfusionLab · versão 0.2.0", color = Color.Gray, fontSize = 12.sp)
+            Text("PerfusionLab · versão 0.3.0", color = Color.Gray, fontSize = 12.sp)
         }
     }
 }
