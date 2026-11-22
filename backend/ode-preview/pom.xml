@@ -36,6 +36,10 @@
           <include>com/perfusionlab/simulation/api/PdeTransportRequest.java</include>
           <include>com/perfusionlab/simulation/api/PdeTransportResponse.java</include>
           <include>com/perfusionlab/simulation/pde/OxygenTransportPdeModel.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledSimulationController.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledSimulationRequest.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledSimulationResponse.java</include>
+          <include>com/perfusionlab/simulation/domain/CoupledOdePdePerfusionModel.java</include>
         </includes></configuration>
       </plugin>
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
