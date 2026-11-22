@@ -1,6 +1,6 @@
 # PerfusionLab — especificação do núcleo matemático ODE/PDE
 
-**Status:** ODE v0.2.0 e PDE experimental v0.3.0 implementados em protótipo.  
+**Status:** ODE v0.2.0, PDE experimental v0.3.0 e acoplamento ODE→PDE v0.1.0 implementados em protótipo.  
 **Escopo:** simulação educacional e pesquisa computacional; não validado clinicamente, não é dispositivo médico e não deve orientar condutas em pacientes.
 
 ## 1. Estratégia de modelagem
@@ -47,7 +47,7 @@ O termo de reação é fenomenológico; ainda não equivale a consumo metabólic
 \Delta t \leq \frac{0.8}{u/\Delta x+2D/\Delta x^2+k}
 ]
 
-A execução é rejeitada se exceder o orçamento computacional ou sair do intervalo normalizado, sem clipping silencioso.
+A execução é rejeitada se exceder o orçamento computacional ou sair do intervalo normalizado, sem clipping silencioso. No acoplamento, o orçamento também limita o produto entre passos temporais e nós espaciais para evitar execuções excessivamente custosas.
 
 ### Endpoint
 
