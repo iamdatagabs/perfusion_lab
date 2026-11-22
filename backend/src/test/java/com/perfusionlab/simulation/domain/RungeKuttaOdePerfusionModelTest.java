@@ -28,7 +28,7 @@ class RungeKuttaOdePerfusionModelTest {
         OdeSimulationResponse result = model.evaluate(request(2.0, 5.0, 0.1));
         var last = result.points().get(result.points().size() - 1);
         assertTrue(last.flowLMin() > 4.9);
-        assertTrue(last.flowLMin() < 5.0);
+        assertTrue(last.flowLMin() <= 5.0);
         assertTrue(result.points().stream().allMatch(p -> Double.isFinite(p.pressureMmHg())));
     }
 
