@@ -1,24 +1,32 @@
 # PerfusionLab Android — MVP
 
-Aplicativo nativo Android em Kotlin + Jetpack Compose. Esta pasta inicia a estrutura do cliente móvel; ainda não é um APK publicado.
+Aplicativo Android nativo em Kotlin + Jetpack Compose.
 
-## Escopo do MVP
-- Tela inicial com identificação do modelo e aviso educacional.
-- Formulário de parâmetros.
-- Disparo de simulação pela API.
-- Visualização da série temporal e métricas retornadas.
-- Histórico local simples de cenários (fase posterior).
+## Funcionalidades implementadas nesta etapa
+- Formulário de parâmetros do modelo ODE.
+- Chamada REST assíncrona para `POST /api/v2/simulations/ode-preview`.
+- Exibição dos valores finais de fluxo, pressão, DO₂ e DO₂i.
+- Gráficos temporais de fluxo e pressão.
+- Estados de carregamento e erro.
+- Aviso de uso educacional e ausência de validação clínica.
 
-## Decisões técnicas
-- Kotlin + Jetpack Compose + Material 3.
-- Coroutines para chamadas assíncronas.
-- Retrofit/OkHttp para REST, a integrar com o contrato ODE.
-- ViewModel + StateFlow para estado de tela.
-- Matemática no backend/model-core; o Android não mantém uma segunda implementação.
-- Min SDK 26 como alvo inicial.
+## Configuração da API
+O endereço-base é configurado pela propriedade Gradle `PERFUSIONLAB_API_BASE_URL`. O valor padrão reservado é `https://perfusionlab-ode-api.onrender.com/`; o serviço Spring Boot ainda precisa ser provisionado nesse endereço para que a chamada remota funcione. O serviço Node de prévia já existente é separado e não implementa este endpoint.
 
-## Estado desta entrega
-Estrutura inicial do projeto e tela de entrada. A integração REST e o gráfico serão adicionados junto com o contrato versionado do motor ODE. O app não deve exibir resultados calculados localmente como se fossem resultados do motor científico.
+Para apontar a um backend local ou outro host, defina em `android/gradle.properties`:
 
-## Abrir no Android Studio
-Abra android/ no Android Studio com Android SDK e JDK compatíveis. O projeto usa Gradle Kotlin DSL e plugin Android/Compose. O wrapper Gradle deve ser gerado pelo Android Studio na primeira abertura, caso não esteja presente no repositório.
+```properties
+PERFUSIONLAB_API_BASE_URL=https://seu-host-backend/
+```
+
+A URL deve terminar com barra. Não inclua credenciais nessa propriedade.
+
+## Build
+- Android SDK 35
+- JDK 21
+- Gradle 8.9
+
+O workflow `.github/workflows/android-ci.yml` executa `assembleDebug` em pushes/PRs que alterem o app e publica o APK de debug como artefato de CI.
+
+## Limites
+O cliente Android não calcula as equações localmente: os resultados vêm do backend. Sem o serviço Spring Boot ativo no endereço configurado, a tela exibirá um erro de conexão. O modelo continua sendo um protótipo matemático educacional, sem validação clínica.
