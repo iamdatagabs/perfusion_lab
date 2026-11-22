@@ -3,7 +3,7 @@ const PREVIEW_API_BASE='https://perfusionlab-preview-api-orsn.onrender.com';
 const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'':PREVIEW_API_BASE;
 let apiBase=(localStorage.getItem(API_KEY)||defaultBase()).replace(/\/$/,'');
 const $=id=>document.getElementById(id);
-const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[],timeline:null,multivariateTimeline:null,mathReference:null};
+const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[],timeline:null,multivariateTimeline:null,mathReference:null,supportsCoupled:false};
 const fmt=(v,d=1)=>v==null?'—':Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const date=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,7 +12,7 @@ const newCorrelationId=()=>globalThis.crypto?.randomUUID?.()||('corr-'+Date.now(
 function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3200)}
 async function request(path,options={}){const response=await fetch(url(path),{...options,headers:{'Content-Type':'application/json','X-Correlation-ID':newCorrelationId(),...(options.headers||{})}});if(!response.ok){let msg=response.status+' '+response.statusText;try{const t=await response.text();if(t)msg=t}catch{}throw new Error(msg)}if(response.status===204)return null;return response.json()}
 function setConnection(ok,label){$('connectionDot').parentElement.className='connection '+(ok?'online':'offline');$('connectionText').textContent=label}
-async function checkHealth(){const submit=$('simulationForm')?.querySelector('button[type=submit]');try{const health=await request('/api/v1/health');const previewOnly=health.service==='perfusionlab-preview-api';if(submit){submit.disabled=previewOnly;submit.textContent=previewOnly?'Grid indisponível nesta API':'▶ Enviar para o grid'}document.querySelectorAll('.nav-item[data-view="jobs"],.nav-item[data-view="cluster"]').forEach(item=>item.hidden=previewOnly);const overviewStats=document.querySelectorAll('#view-overview>.stat-grid');if(overviewStats[1])overviewStats[1].hidden=previewOnly;const dashboard=document.querySelector('#view-overview .dashboard-grid');if(dashboard)dashboard.hidden=previewOnly;setConnection(true,previewOnly?'API de prévia conectada':'API conectada');return true}catch{if(submit){submit.disabled=true;submit.textContent='API indisponível'}setConnection(false,'API indisponível');return false}}
+async function checkHealth(){const submit=$('simulationForm')?.querySelector('button[type=submit]');try{const health=await request('/api/v1/health');const previewOnly=health.service==='perfusionlab-preview-api';state.supportsCoupled=!previewOnly;const coupledButton=$('runCoupledConsole');if(coupledButton){coupledButton.disabled=previewOnly;$('coupledConsoleStatus').textContent=previewOnly?'API Node de prévia conectada; o acoplamento requer o backend Spring Boot.':'Backend conectado; acoplamento ODE–PDE disponível.'}if(submit){submit.disabled=previewOnly;submit.textContent=previewOnly?'Grid indisponível nesta API':'▶ Enviar para o grid'}document.querySelectorAll('.nav-item[data-view="jobs"],.nav-item[data-view="cluster"]').forEach(item=>item.hidden=previewOnly);const overviewStats=document.querySelectorAll('#view-overview>.stat-grid');if(overviewStats[1])overviewStats[1].hidden=previewOnly;const dashboard=document.querySelector('#view-overview .dashboard-grid');if(dashboard)dashboard.hidden=previewOnly;setConnection(true,previewOnly?'API de prévia conectada':'API conectada');return true}catch{state.supportsCoupled=false;const coupledButton=$('runCoupledConsole');if(coupledButton)coupledButton.disabled=true;if(submit){submit.disabled=true;submit.textContent='API indisponível'}setConnection(false,'API indisponível');return false}}
 function go(view){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+view));document.querySelectorAll('.nav-item[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const names={overview:'Visão geral',simulate:'Nova simulação',jobs:'Experimentos',cluster:'Computação distribuída',settings:'Configurações'};$('pageTitle').textContent=names[view]||view;if(view==='jobs')loadJobs();if(view==='cluster')loadCluster();if(view==='overview')loadOverview();if(view==='settings')$('apiBaseInput').value=apiBase}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 async function loadJobs(){try{state.jobs=await request('/api/v1/simulations/jobs?limit=50');renderJobs();renderRecent()}catch(e){$('allJobs').innerHTML='<div class="empty">Não foi possível carregar jobs. '+esc(e.message)+'</div>';}}
@@ -198,6 +198,39 @@ $('runMultivariate').addEventListener('click',async()=>{
 });
 $('exportMultivariateCsv').addEventListener('click',()=>{const d=state.multivariateTimeline;if(!d)return;const keys=d.parameters,head=['elapsed_seconds',...keys,'estimated_map_mmhg','oxygen_delivery_ml_min','oxygen_delivery_index_ml_min_m2'];const rows=d.points.map(p=>[p.elapsedSeconds,...keys.map(k=>p.parameterValues[k]),p.estimatedMapMmHg,p.estimatedOxygenDeliveryMlMin,p.estimatedOxygenDeliveryIndexMlMinM2]);downloadText('perfusionlab-multivariate-scenario.csv',[head.join(','),...rows.map(r=>r.join(','))].join('\\n'),'text/csv;charset=utf-8')});
 $('exportMultivariateJson').addEventListener('click',()=>{if(state.multivariateTimeline)downloadText('perfusionlab-multivariate-scenario.json',JSON.stringify(state.multivariateTimeline,null,2),'application/json')});
+function drawConsoleCoupledProfile(profile){
+ const canvas=$('consoleCoupledChart');if(!canvas||!profile?.length)return;
+ const width=Math.max(320,canvas.clientWidth||640),height=180,ratio=window.devicePixelRatio||1;
+ canvas.width=width*ratio;canvas.height=height*ratio;
+ const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);ctx.clearRect(0,0,width,height);
+ const left=42,right=14,top=12,bottom=26,plotW=width-left-right,plotH=height-top-bottom;
+ ctx.strokeStyle='rgba(155,179,194,.35)';ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,top+plotH);ctx.lineTo(width-right,top+plotH);ctx.stroke();
+ ctx.fillStyle='#9bb3c2';ctx.font='10px system-ui';ctx.fillText('1,0',8,top+4);ctx.fillText('0,0',8,top+plotH+3);ctx.fillText('x (mm)',width-48,height-5);
+ ctx.strokeStyle='#55d6df';ctx.lineWidth=2.5;ctx.beginPath();
+ profile.forEach((p,i)=>{const x=left+p.xMm/Math.max(profile[profile.length-1].xMm,1e-9)*plotW,y=top+(1-p.concentration)*plotH;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
+ ctx.stroke();
+}
+$('runCoupledConsole').addEventListener('click',async()=>{
+ if(!state.supportsCoupled){$('coupledConsoleStatus').textContent='Configure uma API Spring Boot que exponha /api/v2/simulations/coupled-preview.';return}
+ const form=$('simulationForm');if(!form.reportValidity())return;
+ const n=id=>Number($(id).value),f=form.elements;
+ const btn=$('runCoupledConsole');btn.disabled=true;$('coupledConsoleStatus').textContent='Calculando EDO e EDP...';$('coupledConsoleResults').hidden=true;
+ const body={
+  ode:{initialFlowLMin:3.0,targetFlowLMin:Number(f.pumpFlowLMin.value),hemoglobinGdL:Number(f.hemoglobinGdL.value),arterialSaturation:Number(f.arterialSaturationPct.value)/100,systemicVascularResistance:Number(f.systemicVascularResistance.value),bodySurfaceAreaM2:Number(f.bodySurfaceAreaM2.value),arterialComplianceMlPerMmHg:2.0,flowTimeConstantSeconds:3.0,venousPressureMmHg:5.0,durationSeconds:n('consoleCoupledDuration'),stepSeconds:.1},
+  effectiveCrossSectionAreaMm2:n('consoleCoupledArea'),domainLengthMm:n('consoleCoupledLength'),dispersionMm2PerSecond:n('consoleCoupledDiffusion'),consumptionRatePerSecond:n('consoleCoupledReaction'),initialConcentration:n('consoleCoupledInitial'),inletConcentration:n('consoleCoupledInlet'),equilibriumConcentration:n('consoleCoupledEquilibrium'),spatialNodes:81
+ };
+ try{
+  const result=await request('/api/v2/simulations/coupled-preview',{method:'POST',body:JSON.stringify(body)});
+  $('consoleCoupledMaxVelocity').textContent=fmt(result.maximumAxialVelocityMmPerSecond,3);
+  $('consoleCoupledMeanVelocity').textContent=fmt(result.meanAxialVelocityMmPerSecond,3);
+  $('consoleCoupledOutlet').textContent=fmt(result.outletConcentration,4);
+  $('consoleCoupledDt').textContent=fmt(result.pdeTimeStepSeconds,6);
+  $('consoleCoupledDescription').textContent=result.modelVersion+' · '+result.spatialNodes+' nós · '+result.odeTrajectory.length+' pontos ODE. '+result.couplingDescription+' '+result.limitations;
+  $('coupledConsoleResults').hidden=false;drawConsoleCoupledProfile(result.finalConcentrationProfile);
+  $('coupledConsoleStatus').textContent='Simulação concluída. Resultados retornados pelo backend.';
+ }catch(e){$('coupledConsoleStatus').textContent='Falha: '+e.message+'. Verifique se o backend Spring Boot atualizado está implantado.'}
+ finally{btn.disabled=!state.supportsCoupled}
+});
 $('previewButton').addEventListener('click',async()=>{const form=$('simulationForm');if(!form.reportValidity())return;try{$('previewButton').disabled=true;$('resultState').textContent='CALCULANDO...';const r=await request('/api/v1/simulations/preview',{method:'POST',body:JSON.stringify(formPayload())});renderPreview(r)}catch(e){toast('Não foi possível calcular a prévia: '+e.message);$('resultState').textContent='ERRO'}finally{$('previewButton').disabled=false}});
 $('simulationForm').addEventListener('submit',async e=>{e.preventDefault();if(!e.currentTarget.reportValidity())return;const btn=e.submitter;try{btn.disabled=true;btn.textContent='Enviando...';const job=await request('/api/v1/simulations/jobs',{method:'POST',body:JSON.stringify(formPayload())});toast('Simulação enviada · '+String(job.jobId).slice(0,8));watchJob(job.jobId);go('jobs');await loadJobs();await showJob(job.jobId)}catch(err){toast('Falha ao enviar simulação: '+err.message)}finally{btn.disabled=false;btn.textContent='▶ Enviar para o grid'}});
 function watchJob(id){if(state.pollTimer)clearInterval(state.pollTimer);let attempts=0;state.pollTimer=setInterval(async()=>{attempts++;try{const j=await request('/api/v1/simulations/jobs/'+encodeURIComponent(id));if(state.activeJob?.jobId===id){state.activeJob=j;$('jobDetailContent').innerHTML='<div class="detail-kv"><div><small>JOB ID</small><strong class="mono">'+esc(j.jobId)+'</strong></div><div><small>ESTADO</small><strong>'+statusBadge(j.state)+'</strong></div><div><small>SUBMETIDO</small><strong>'+esc(date(j.submittedAt))+'</strong></div><div><small>INICIADO</small><strong>'+esc(date(j.startedAt))+'</strong></div><div><small>CONCLUÍDO</small><strong>'+esc(date(j.completedAt))+'</strong></div><div><small>ERRO</small><strong>'+esc(j.error||'—')+'</strong></div></div>'+(j.result?renderResult(j.result):'<p class="muted">Resultado ainda não disponível.</p>')}if(['SUCCEEDED','FAILED'].includes(j.state)||attempts>=90){clearInterval(state.pollTimer);state.pollTimer=null;await loadJobs();await loadOverview()}}catch{if(attempts>=90){clearInterval(state.pollTimer);state.pollTimer=null}}},2000)}
