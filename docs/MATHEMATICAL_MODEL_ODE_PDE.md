@@ -1,6 +1,6 @@
 # PerfusionLab — especificação do núcleo matemático ODE/PDE
 
-**Status:** ODE v0.2.0 e PDE experimental v0.2.0 implementados em protótipo.  
+**Status:** ODE v0.2.0 e PDE experimental v0.3.0 implementados em protótipo.  
 **Escopo:** simulação educacional e pesquisa computacional; não validado clinicamente, não é dispositivo médico e não deve orientar condutas em pacientes.
 
 ## 1. Estratégia de modelagem
@@ -40,8 +40,8 @@ O termo de reação é fenomenológico; ainda não equivale a consumo metabólic
 - Malha uniforme: (\Delta x=L/(N-1)).
 - Advecção: upwind.
 - Difusão: diferenças centrais.
-- Tempo: Euler explícito.
-- Passo conservador suficiente:
+- Tempo: SSP-RK2 (Heun), de segunda ordem temporal e com propriedade strong-stability-preserving.
+- Passo conservador adotado para as etapas de Euler que compõem o SSP-RK2:
 
 [
 \Delta t \leq \frac{0.8}{u/\Delta x+2D/\Delta x^2+k}
@@ -64,7 +64,7 @@ A suíte inclui:
 4. **solução manufaturada:** difusão pura com modo (C(x,0)=\sin(\pi x/(2L))), entrada nula e saída de gradiente nulo. A solução analítica é (C(x,t)=\sin(\pi x/(2L))e^{-D(\pi/(2L))^2t}).
 5. estimativa da ordem observada pela redução do erro L2 em malhas sucessivamente refinadas. O passo temporal também é reduzido com dx², portanto o teste mede a convergência conjunta do esquema explícito sob essa política de passo.
 
-A resposta numérica preserva 12 casas decimais para não mascarar erros pequenos nos testes de convergência.
+A resposta numérica preserva 12 casas decimais para não mascarar erros pequenos nos testes de convergência. O SSP-RK2 é implementado como combinação convexa de duas etapas de Euler; por isso, mantém o limite de monotonicidade da etapa Euler sob o passo indicado.
 
 ## 5. Limitações
 
