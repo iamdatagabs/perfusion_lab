@@ -23,7 +23,7 @@ A URL deve terminar com barra. Não inclua credenciais nessa propriedade.
 
 ## Build
 - Android SDK 35
-- JDK 21
+- JDK 21 (compilação Java/Kotlin com bytecode JVM 17 para compatibilidade do Android)
 - Gradle 8.9
 
 O workflow `.github/workflows/android-ci.yml` executa `assembleDebug` em pushes/PRs que alterem o app e publica o APK de debug como artefato de CI.
