@@ -20,6 +20,7 @@ public class CoupledOdePdePerfusionModel {
     public static final String MODEL_VERSION = "0.1.0-ode-pde-coupled";
     private static final double SAFETY_FACTOR = 0.80;
     private static final long MAX_PDE_STEPS = 2_000_000L;
+    private static final long MAX_PDE_NODE_UPDATES = 50_000_000L;
     private final RungeKuttaOdePerfusionModel odeModel;
 
     public CoupledOdePdePerfusionModel(RungeKuttaOdePerfusionModel odeModel) {
@@ -56,9 +57,9 @@ public class CoupledOdePdePerfusionModel {
             + p.consumptionRatePerSecond();
         double stableLimit = rate > 0.0 ? SAFETY_FACTOR / rate : duration;
         long steps = Math.max(1L, (long) Math.ceil(duration / stableLimit));
-        if (steps > MAX_PDE_STEPS) {
+        if (steps > MAX_PDE_STEPS || steps * (long) n > MAX_PDE_NODE_UPDATES) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Coupled PDE requires too many explicit time steps. Increase effectiveCrossSectionAreaMm2, reduce dispersion or spatial resolution, or shorten the experiment.");
+                "Coupled PDE exceeds the explicit solver's time-step or node-update budget. Increase effectiveCrossSectionAreaMm2, reduce dispersion or spatial resolution, or shorten the experiment.");
         }
         double dt = duration / steps;
 
@@ -132,16 +133,19 @@ public class CoupledOdePdePerfusionModel {
 
     private double interpolateFlow(List<OdeSimulationResponse.Point> points, double time, double area) {
         if (time <= points.get(0).timeSeconds()) return flowToVelocity(points.get(0).flowLMin(), area);
-        for (int i = 1; i < points.size(); i++) {
-            OdeSimulationResponse.Point right = points.get(i);
-            if (time <= right.timeSeconds()) {
-                OdeSimulationResponse.Point left = points.get(i - 1);
-                double fraction = (time - left.timeSeconds()) / (right.timeSeconds() - left.timeSeconds());
-                double flow = left.flowLMin() + fraction * (right.flowLMin() - left.flowLMin());
-                return flowToVelocity(flow, area);
-            }
+        int low = 0;
+        int high = points.size() - 1;
+        while (low + 1 < high) {
+            int middle = (low + high) >>> 1;
+            if (points.get(middle).timeSeconds() <= time) low = middle;
+            else high = middle;
         }
-        return flowToVelocity(points.get(points.size() - 1).flowLMin(), area);
+        OdeSimulationResponse.Point left = points.get(low);
+        OdeSimulationResponse.Point right = points.get(high);
+        if (time >= right.timeSeconds()) return flowToVelocity(right.flowLMin(), area);
+        double fraction = (time - left.timeSeconds()) / (right.timeSeconds() - left.timeSeconds());
+        double flow = left.flowLMin() + fraction * (right.flowLMin() - left.flowLMin());
+        return flowToVelocity(flow, area);
     }
 
     /** 1 L = 1,000,000 mm^3; convert L/min to mm^3/s and divide by mm^2. */
