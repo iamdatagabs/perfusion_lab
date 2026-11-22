@@ -10,56 +10,35 @@
   <groupId>com.perfusionlab</groupId>
   <artifactId>perfusionlab-ode-preview</artifactId>
   <version>0.2.0</version>
-  <name>PerfusionLab ODE Preview API</name>
-  <description>Stateless educational ODE preview API for the PerfusionLab Android MVP</description>
-
-  <properties>
-    <java.version>21</java.version>
-  </properties>
-
+  <name>PerfusionLab ODE/PDE Preview API</name>
+  <description>Stateless educational ODE and PDE preview API for the PerfusionLab MVP</description>
+  <properties><java.version>21</java.version></properties>
   <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-actuator</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>
-
-  <!-- Compile only the existing ODE API/model classes from the main backend.
-       Database, queue and worker components are deliberately excluded. -->
+  <!-- Only the stateless ODE/PDE API classes are compiled. Database, queue and worker code stay excluded. -->
   <build>
     <sourceDirectory>${project.basedir}/../src/main/java</sourceDirectory>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <includes>
-            <include>com/perfusionlab/PerfusionLabApplication.java</include>
-            <include>com/perfusionlab/platform/api/HealthController.java</include>
-            <include>com/perfusionlab/simulation/api/OdeSimulationController.java</include>
-            <include>com/perfusionlab/simulation/api/OdeSimulationRequest.java</include>
-            <include>com/perfusionlab/simulation/api/OdeSimulationResponse.java</include>
-            <include>com/perfusionlab/simulation/domain/RungeKuttaOdePerfusionModel.java</include>
-          </includes>
-        </configuration>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
+        <configuration><includes>
+          <include>com/perfusionlab/PerfusionLabApplication.java</include>
+          <include>com/perfusionlab/platform/api/HealthController.java</include>
+          <include>com/perfusionlab/simulation/api/OdeSimulationController.java</include>
+          <include>com/perfusionlab/simulation/api/OdeSimulationRequest.java</include>
+          <include>com/perfusionlab/simulation/api/OdeSimulationResponse.java</include>
+          <include>com/perfusionlab/simulation/domain/RungeKuttaOdePerfusionModel.java</include>
+          <include>com/perfusionlab/simulation/api/PdeTransportController.java</include>
+          <include>com/perfusionlab/simulation/api/PdeTransportRequest.java</include>
+          <include>com/perfusionlab/simulation/api/PdeTransportResponse.java</include>
+          <include>com/perfusionlab/simulation/pde/OxygenTransportPdeModel.java</include>
+        </includes></configuration>
       </plugin>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
+      <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
     </plugins>
   </build>
 </project>
