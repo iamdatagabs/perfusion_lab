@@ -198,6 +198,20 @@ $('runMultivariate').addEventListener('click',async()=>{
 });
 $('exportMultivariateCsv').addEventListener('click',()=>{const d=state.multivariateTimeline;if(!d)return;const keys=d.parameters,head=['elapsed_seconds',...keys,'estimated_map_mmhg','oxygen_delivery_ml_min','oxygen_delivery_index_ml_min_m2'];const rows=d.points.map(p=>[p.elapsedSeconds,...keys.map(k=>p.parameterValues[k]),p.estimatedMapMmHg,p.estimatedOxygenDeliveryMlMin,p.estimatedOxygenDeliveryIndexMlMinM2]);downloadText('perfusionlab-multivariate-scenario.csv',[head.join(','),...rows.map(r=>r.join(','))].join('\\n'),'text/csv;charset=utf-8')});
 $('exportMultivariateJson').addEventListener('click',()=>{if(state.multivariateTimeline)downloadText('perfusionlab-multivariate-scenario.json',JSON.stringify(state.multivariateTimeline,null,2),'application/json')});
+function drawConsoleCoupledVelocity(trajectory){
+ const canvas=$('consoleCoupledVelocityChart');if(!canvas||!trajectory?.length)return;
+ const width=Math.max(320,canvas.clientWidth||640),height=180,ratio=window.devicePixelRatio||1;
+ canvas.width=width*ratio;canvas.height=height*ratio;
+ const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);ctx.clearRect(0,0,width,height);
+ const left=48,right=14,top=12,bottom=26,plotW=width-left-right,plotH=height-top-bottom;
+ const yMin=Math.min(...trajectory.map(p=>p.axialVelocityMmPerSecond)),yMax=Math.max(...trajectory.map(p=>p.axialVelocityMmPerSecond));
+ const xMin=trajectory[0].timeSeconds,xMax=trajectory[trajectory.length-1].timeSeconds;
+ ctx.strokeStyle='rgba(155,179,194,.35)';ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,top+plotH);ctx.lineTo(width-right,top+plotH);ctx.stroke();
+ ctx.fillStyle='#9bb3c2';ctx.font='10px system-ui';ctx.fillText(fmt(yMax,2),4,top+4);ctx.fillText(fmt(yMin,2),4,top+plotH+3);ctx.fillText('t (s)',width-42,height-5);
+ ctx.strokeStyle='#72e0b1';ctx.lineWidth=2.5;ctx.beginPath();
+ trajectory.forEach((p,i)=>{const x=left+(p.timeSeconds-xMin)/Math.max(xMax-xMin,1e-9)*plotW,y=top+(1-(p.axialVelocityMmPerSecond-yMin)/Math.max(yMax-yMin,1e-9))*plotH;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
+ ctx.stroke();
+}
 function drawConsoleCoupledProfile(profile){
  const canvas=$('consoleCoupledChart');if(!canvas||!profile?.length)return;
  const width=Math.max(320,canvas.clientWidth||640),height=180,ratio=window.devicePixelRatio||1;
@@ -226,7 +240,7 @@ $('runCoupledConsole').addEventListener('click',async()=>{
   $('consoleCoupledOutlet').textContent=fmt(result.outletConcentration,4);
   $('consoleCoupledDt').textContent=fmt(result.pdeTimeStepSeconds,6);
   $('consoleCoupledDescription').textContent=result.modelVersion+' · '+result.spatialNodes+' nós · '+result.odeTrajectory.length+' pontos ODE. '+result.couplingDescription+' '+result.limitations;
-  $('coupledConsoleResults').hidden=false;drawConsoleCoupledProfile(result.finalConcentrationProfile);
+  $('coupledConsoleResults').hidden=false;drawConsoleCoupledProfile(result.finalConcentrationProfile);drawConsoleCoupledVelocity(result.velocityTrajectory);
   $('coupledConsoleStatus').textContent='Simulação concluída. Resultados retornados pelo backend.';
  }catch(e){$('coupledConsoleStatus').textContent='Falha: '+e.message+'. Verifique se o backend Spring Boot atualizado está implantado.'}
  finally{btn.disabled=!state.supportsCoupled}
