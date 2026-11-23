@@ -9,6 +9,6 @@ import jakarta.validation.constraints.NotNull;
 public record CoupledFieldRequest(
     @NotNull @Valid CoupledSimulationRequest coupled,
     @NotNull @Min(5) @Max(101) Integer transverseNodes,
-    @NotNull @Min(1) @Max(100.0) Double transverseDomainMm,
+    @NotNull @Min(1) @Max(100) Double transverseDomainMm,
     @NotNull @Min(2) @Max(101) Integer snapshots
 ) {}
