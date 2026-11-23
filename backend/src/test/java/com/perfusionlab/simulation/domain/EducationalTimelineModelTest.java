@@ -12,6 +12,8 @@ class EducationalTimelineModelTest {
   assertEquals(4.0,r.points().get(0).parameterValue(),.001); assertEquals(6.0,r.points().get(4).parameterValue(),.001);
   assertEquals(60,r.points().get(4).elapsedSeconds()); assertEquals(60.0,r.points().get(0).estimatedMapMmHg(),.01);
   assertEquals(90.0,r.points().get(4).estimatedMapMmHg(),.01);
+  assertTrue(r.points().get(4).estimatedOxygenDeliveryMlMin() > r.points().get(0).estimatedOxygenDeliveryMlMin());
+  assertTrue(r.points().get(4).estimatedOxygenDeliveryIndexMlMinM2() > r.points().get(0).estimatedOxygenDeliveryIndexMlMinM2());
  }
  @Test void appendsExactEndTimeWhenStepDoesNotDivideDuration(){
   var r=model.evaluate(new SimulationTimelineRequest(baseline,"pumpFlowLMin",5.0,50,20));
