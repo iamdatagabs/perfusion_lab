@@ -257,7 +257,7 @@ For the browser MVP, configure a Spring Boot API base URL exposing the v2 endpoi
 
 O repositório inicia uma fundação de CFD em cfd/: um modelo transiente axisimétrico reduzido para escoamento laminar totalmente desenvolvido em tubo circular rígido, com discretização radial por volumes finitos e comparação com o perfil analítico de Poiseuille. Esse solver é um problema de verificação inicial, não um solver Navier–Stokes 3D, não representa uma cânula real e não foi validado para uso clínico.
 
-A montagem CAD conceitual está em geometry/perfusion_circuit.scad (OpenSCAD). Reservatório, bomba, oxigenador, linhas e cânulas são formas esquemáticas, sem dimensões de fabricantes ou alegação de fabricabilidade.
+A montagem CAD conceitual está em geometry/perfusion_circuit.scad (OpenSCAD). Reservatório, bomba, oxigenador, linhas e cânulas são formas esquemáticas, sem dimensões de fabricantes ou alegação de fabricabilidade; a exportação STL inicial também não é uma malha CFD-ready.
 
 ## Apostilas em LaTeX
 

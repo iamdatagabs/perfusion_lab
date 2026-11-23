@@ -17,4 +17,6 @@ cd ../engineering-mathematics
 latexmk -pdf main.tex
 ~~~
 
+As duas fontes foram compiladas localmente com pdflatex sem erro de compilação. Os PDFs são artefatos locais de conferência; o repositório mantém as fontes TeX.
+
 As apostilas estão em desenvolvimento e devem receber revisão técnica de profissionais de perfusão, cirurgia cardiovascular, fisiologia e engenharia antes de serem consideradas materiais didáticos finais. Não são protocolos assistenciais.

@@ -52,3 +52,10 @@ pytest
 ~~~
 
 Os valores padrão são parâmetros ilustrativos para exercitar o solver, não valores recomendados para uso clínico.
+
+
+## Estado da validação geométrica inicial
+
+A montagem OpenSCAD foi renderizada e exportada para STL como teste de sintaxe/visualização. O exportador reportou aviso de geometria possivelmente não 2-manifold, coerente com uma montagem esquemática de componentes separados e interseções. Portanto, o STL atual não deve ser usado como domínio fluido nem como malha CFD. A próxima etapa CAD deverá separar sólidos de componentes e construir uma superfície fechada específica do volume de fluido, com verificação de manifold, normais e qualidade de malha.
+
+As duas fontes LaTeX foram compiladas localmente com pdflatex sem erro de compilação. Os PDFs gerados são artefatos locais de conferência; o repositório mantém as fontes .tex como solicitado.
