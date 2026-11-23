@@ -31,4 +31,41 @@ class CoupledConcentrationFieldModelTest {
         assertTrue(last.points().stream().allMatch(p -> p.concentration() >= 0 && p.concentration() <= 1));
         assertTrue(last.timeSeconds() > 0);
     }
+
+    @Test
+    void preservesSpatiallyUniformEquilibriumExactly() {
+        var ode = new OdeSimulationRequest(2.0, 4.0, 10.0, .98, 1200.0,
+            1.8, 2.0, 3.0, 5.0, 2.0, .1);
+        var coupled = new CoupledSimulationRequest(ode, 10_000.0, 20.0,
+            .15, .025, .25, .2, .5, 21, null);
+        var result = model.evaluate(new CoupledFieldRequest(coupled, 9, 8.0, 5));
+
+        for (var snapshot : result.snapshots()) {
+            for (var point : snapshot.points()) {
+                assertEquals(.5, point.concentration(), 1e-10,
+                    "A constant field equal to inlet and reaction equilibrium must remain invariant");
+            }
+        }
+    }
+
+    @Test
+    void uniformTransverseInitialAndBoundaryConditionsRemainUniformAcrossZ() {
+        var ode = new OdeSimulationRequest(2.0, 4.0, 10.0, .98, 1200.0,
+            1.8, 2.0, 3.0, 5.0, 2.0, .1);
+        var coupled = new CoupledSimulationRequest(ode, 10_000.0, 20.0,
+            .15, .025, .25, .2, .7, 21, null);
+        var result = model.evaluate(new CoupledFieldRequest(coupled, 11, 8.0, 5));
+
+        for (var snapshot : result.snapshots()) {
+            for (int i = 0; i < result.axialNodes(); i++) {
+                double reference = snapshot.points().get(i * result.transverseNodes()).concentration();
+                for (int j = 1; j < result.transverseNodes(); j++) {
+                    assertEquals(reference,
+                        snapshot.points().get(i * result.transverseNodes() + j).concentration(),
+                        1e-10,
+                        "Uniform transverse data must not develop a spurious Z gradient");
+                }
+            }
+        }
+    }
 }
