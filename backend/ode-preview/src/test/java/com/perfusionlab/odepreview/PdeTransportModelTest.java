@@ -2,6 +2,7 @@ package com.perfusionlab.odepreview;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.perfusionlab.simulation.api.PdeTransportRequest;
 import com.perfusionlab.simulation.api.PdeTransportResponse;
@@ -9,6 +10,8 @@ import com.perfusionlab.simulation.pde.OxygenTransportPdeModel;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 class PdeTransportModelTest {
     private final OxygenTransportPdeModel model = new OxygenTransportPdeModel();
@@ -104,4 +107,32 @@ class PdeTransportModelTest {
         }
         return Math.sqrt(sum / candidate.profile().size());
     }
+
+    @Test
+    void rejectsInitialProfileWithWrongLength() {
+        var invalid = new PdeTransportRequest(10.0, 0.0, 0.0, 0.0,
+            0.4, 0.4, 0.4, 5.0, 41, List.of(0.4, 0.4, 0.4));
+        var error = assertThrows(ResponseStatusException.class, () -> model.evaluate(invalid));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+    }
+
+    @Test
+    void rejectsInitialProfileOutsideNormalizedRange() {
+        List<Double> profile = new ArrayList<>(41);
+        for (int i = 0; i < 41; i++) profile.add(0.4);
+        profile.set(20, 1.01);
+        var invalid = new PdeTransportRequest(10.0, 0.0, 0.0, 0.0,
+            0.4, 0.4, 0.4, 5.0, 41, profile);
+        var error = assertThrows(ResponseStatusException.class, () -> model.evaluate(invalid));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+    }
+
+    @Test
+    void rejectsScenariosThatExceedTheExplicitStepBudget() {
+        var expensive = new PdeTransportRequest(1.0, 20.0, 10.0, 1.0,
+            0.2, 0.2, 0.9, 1200.0, 500);
+        var error = assertThrows(ResponseStatusException.class, () -> model.evaluate(expensive));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+    }
+
 }

@@ -1,31 +1,18 @@
 name: Deploy PerfusionLab MVP
-
 on:
   push:
-    branches: [main, "fix/new-mvp-pages-indicators"]
-    paths:
-      - "index.html"
-      - "assets/**"
-      - "tests/**"
-      - "README.md"
-      - ".github/workflows/pages.yml"
+    branches: [main, "fix/new-mvp-pages-indicators", "feat/cfd-3d-mvp-documentation"]
+    paths: ["index.html", "mvp.html", "assets/**", "tests/**", "README.md", ".github/workflows/pages.yml"]
   pull_request:
-    paths:
-      - "index.html"
-      - "assets/**"
-      - "tests/**"
-      - ".github/workflows/pages.yml"
+    paths: ["index.html", "mvp.html", "assets/**", "tests/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: pages-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -37,7 +24,6 @@ jobs:
           node-version: 22
       - name: Test homepage simulator indicators
         run: node --test tests/simulator.test.js
-
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: test

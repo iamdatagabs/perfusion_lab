@@ -1,0 +1,153 @@
+\documentclass[11pt,a4paper,oneside]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern,microtype}
+\usepackage{geometry}
+\geometry{margin=2.6cm}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{siunitx,booktabs,hyperref,listings,xcolor}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\title{Engenharia Aplicada à Perfusão\\\large Modelagem matemática, métodos numéricos, CFD e geometria}
+\author{Gabriel Passos de Jesus\\\small PerfusionLab}
+\date{Versão de trabalho — novembro de 2026}
+\begin{document}
+\frontmatter
+\maketitle
+\chapter*{Escopo e responsabilidade}
+Esta apostila apresenta fundamentos matemáticos e computacionais para investigação de fenômenos relacionados à perfusão e à circulação extracorpórea. Os modelos são abstrações educacionais. Não representam dispositivos comerciais, anatomia individual, sangue em toda a sua complexidade ou condições clínicas validadas. A implementação não deve orientar cuidados ou parâmetros de pacientes.
+\tableofcontents
+\mainmatter
+\chapter{Formulação de problemas}
+\section{Sistema, domínio e observáveis}
+Todo modelo começa pela definição do domínio físico, fronteiras, variáveis de estado, entradas, parâmetros e observáveis. É necessário declarar escalas espaciais e temporais, hipóteses constitutivas e fontes de incerteza. Uma saída numérica sem unidades e contexto não é um resultado científico interpretável.
+
+\section{Análise dimensional}
+As dimensões fundamentais são massa $M$, comprimento $L$ e tempo $T$. Pressão possui dimensão $ML^{-1}T^{-2}$, vazão volumétrica $L^3T^{-1}$, viscosidade dinâmica $ML^{-1}T^{-1}$ e densidade $ML^{-3}$. A análise dimensional detecta inconsistências e orienta grupos adimensionais.
+
+\chapter{Conservação}
+\section{Massa}
+A forma integral da conservação de massa é
+\[
+\frac{d}{dt}\int_{\Omega}\rho\,dV+
+\int_{\partial\Omega}\rho\mathbf{u}\cdot\mathbf{n}\,dA=0.
+\]
+Para fluido incompressível de densidade constante, obtém-se $\nabla\cdot\mathbf{u}=0$.
+
+\section{Quantidade de movimento}
+A equação de Navier--Stokes para fluido newtoniano incompressível é
+\[
+\rho\left(\frac{\partial\mathbf{u}}{\partial t}
++\mathbf{u}\cdot\nabla\mathbf{u}\right)
+=-\nabla p+\mu\nabla^2\mathbf{u}+\rho\mathbf{f}.
+\]
+A escolha de termos, constituição e condições de contorno depende do problema. Esta equação não torna automaticamente um modelo apropriado ao sangue ou a um dispositivo específico.
+
+\chapter{Modelos concentrados: EDOs}
+Um exemplo de dinâmica de primeira ordem para uma variável de fluxo $Q$ é
+\[
+\tau_Q\frac{dQ}{dt}=Q_{cmd}-Q.
+\]
+Para entrada constante, a solução analítica é
+\[
+Q(t)=Q_{cmd}+[Q(0)-Q_{cmd}]e^{-t/\tau_Q}.
+\]
+A constante de tempo controla a escala de relaxamento. O modelo é útil para testar integradores e não pretende reproduzir toda a dinâmica cardiovascular.
+
+\section{Runge--Kutta de quarta ordem}
+Para $y'=f(t,y)$, o método RK4 usa quatro avaliações por passo:
+\[
+\begin{aligned}
+k_1&=f(t_n,y_n),\\
+k_2&=f(t_n+h/2,y_n+hk_1/2),\\
+k_3&=f(t_n+h/2,y_n+hk_2/2),\\
+k_4&=f(t_n+h,y_n+hk_3),\\
+y_{n+1}&=y_n+\frac{h}{6}(k_1+2k_2+2k_3+k_4).
+\end{aligned}
+\]
+A ordem formal não elimina a necessidade de estudo de convergência e controle de erro.
+
+\chapter{Modelos distribuídos: EDPs}
+\section{Advecção--difusão--reação}
+Uma variável escalar transportada pode ser descrita por
+\[
+\frac{\partial C}{\partial t}
++u\frac{\partial C}{\partial x}
+=D\frac{\partial^2 C}{\partial x^2}-k(C-C_{eq}).
+\]
+O termo advectivo transporta a variável com o campo de velocidade; o difusivo suaviza gradientes; o termo reacional representa uma aproximação fenomenológica de relaxamento. A variável $C$ não é, por padrão, concentração fisiológica medida.
+
+\section{Condições de contorno}
+Condição de Dirichlet especifica o valor da variável na fronteira. Neumann especifica sua derivada normal. A escolha precisa representar o problema matemático e ser compatível com o sentido do escoamento. Condições iniciais e de contorno devem ser testadas isoladamente.
+
+\chapter{Métodos numéricos}
+\section{Diferenças finitas e volumes finitos}
+Diferenças finitas aproximam derivadas em nós. Volumes finitos integram leis de conservação em células e contabilizam fluxos pelas faces. A segunda abordagem é especialmente útil quando o balanço conservativo é central.
+
+\section{Advecção upwind e difusão central}
+O esquema upwind escolhe a diferença na direção do escoamento e tende a ser robusto, embora possa introduzir difusão numérica. A difusão pode ser aproximada por diferenças centrais em malha regular. A ordem, estabilidade e erro devem ser documentados.
+
+\section{SSP-RK2}
+Uma forma de segunda ordem é
+\[
+y^{(1)}=y^n+\Delta t F(y^n),\qquad
+y^{n+1}=\frac12 y^n+\frac12\left[y^{(1)}+\Delta t F(y^{(1)})\right].
+\]
+A propriedade SSP depende da estabilidade da etapa Euler e da restrição de passo correspondente.
+
+\chapter{Estabilidade e convergência}
+Números adimensionais como Reynolds, Peclet e Courant ajudam a caracterizar regimes e restrições numéricas:
+\[
+Re=\frac{\rho U L}{\mu},\qquad
+Pe=\frac{UL}{D},\qquad
+Co=\frac{U\Delta t}{\Delta x}.
+\]
+Não existe um único limite universal aplicável a todos os esquemas. O limite deve ser derivado para a discretização efetivamente implementada.
+
+Verificações recomendadas: solução analítica, solução manufaturada, conservação, refinamento espacial, refinamento temporal, ordem observada, sensibilidade paramétrica e testes de regressão.
+
+\chapter{CFD: primeiro problema de referência}
+Para escoamento laminar, incompressível, newtoniano, estacionário e totalmente desenvolvido em tubo reto rígido, a solução de Poiseuille é
+\[
+u(r)=\frac{G}{4\mu}(R^2-r^2).
+\]
+O PerfusionLab inicia com a equação transiente radial para velocidade axial, discretizada por volumes finitos. Esse problema reduzido permite verificar simetria, condição de não deslizamento, resposta ao gradiente de pressão e aproximação da solução estacionária. Ele não é um solver Navier--Stokes 3D nem representa uma cânula real.
+
+\chapter{Geometria computacional e modelagem 3D}
+A geometria define o domínio sobre o qual as equações serão resolvidas. Parâmetros como diâmetro, comprimento, curvatura, espessura e conexões devem ter origem documentada. Um modelo visual não é automaticamente uma geometria de engenharia, uma malha de qualidade ou um dispositivo fabricável.
+
+Fluxo de trabalho sugerido:
+\begin{enumerate}
+\item Definir finalidade e escala da peça.
+\item Parametrizar dimensões e tolerâncias conceituais.
+\item Gerar sólido CAD e verificar unidades.
+\item Exportar formato de intercâmbio e conferir integridade.
+\item Gerar malha, avaliar qualidade e independência de malha.
+\item Definir propriedades, condições de contorno e solver.
+\item Comparar com solução analítica ou benchmark.
+\end{enumerate}
+
+\chapter{Acoplamento ODE--PDE--CFD}
+O acoplamento deve ocorrer por contratos explícitos de variáveis e unidades. Um fluxo agregado calculado por ODE pode ser convertido em velocidade média apenas quando a área efetiva é definida e suas hipóteses são claras. O campo CFD pode futuramente fornecer relações de perda de carga ou perfis para modelos reduzidos, mas a retroalimentação exige verificação e validação independentes.
+
+\chapter{Verificação, validação e incerteza}
+\textbf{Verificação} pergunta se as equações foram resolvidas corretamente. \textbf{Validação} pergunta se as equações representam adequadamente o fenômeno de interesse para um uso definido. Calibração não substitui validação. Documentar versão, malha, passo temporal, tolerâncias, dados, parâmetros, ambiente e limitações é parte do resultado.
+
+\chapter{Roteiro prático do repositório}
+\begin{enumerate}
+\item Executar testes Java/Maven do núcleo ODE/PDE.
+\item Executar os testes Python em \texttt{cfd/}.
+\item Inspecionar a geometria OpenSCAD em \texttt{geometry/}.
+\item Reproduzir os benchmarks e guardar parâmetros e logs.
+\item Registrar hipóteses e evidências em documentação versionada.
+\end{enumerate}
+\backmatter
+\chapter*{Referências para aprofundamento}
+\begin{thebibliography}{9}
+\bibitem{white} White, F. M. \textit{Fluid Mechanics}. McGraw-Hill.
+\bibitem{versteeg} Versteeg, H. K.; Malalasekera, W. \textit{An Introduction to Computational Fluid Dynamics: The Finite Volume Method}. Pearson.
+\bibitem{ferziger} Ferziger, J. H.; Perić, M.; Street, R. L. \textit{Computational Methods for Fluid Dynamics}. Springer.
+\bibitem{leveque} LeVeque, R. J. \textit{Finite Volume Methods for Hyperbolic Problems}. Cambridge University Press.
+\bibitem{pope} Pope, S. B. \textit{Turbulent Flows}. Cambridge University Press.
+\end{thebibliography}
+\end{document}
