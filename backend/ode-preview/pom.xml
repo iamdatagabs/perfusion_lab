@@ -9,7 +9,7 @@
   </parent>
   <groupId>com.perfusionlab</groupId>
   <artifactId>perfusionlab-ode-preview</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <name>PerfusionLab ODE/PDE Preview API</name>
   <description>Stateless educational ODE and PDE preview API for the PerfusionLab MVP</description>
   <properties><java.version>21</java.version></properties>
@@ -36,6 +36,10 @@
           <include>com/perfusionlab/simulation/api/PdeTransportRequest.java</include>
           <include>com/perfusionlab/simulation/api/PdeTransportResponse.java</include>
           <include>com/perfusionlab/simulation/pde/OxygenTransportPdeModel.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledSimulationController.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledSimulationRequest.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledSimulationResponse.java</include>
+          <include>com/perfusionlab/simulation/domain/CoupledOdePdePerfusionModel.java</include>
         </includes></configuration>
       </plugin>
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>

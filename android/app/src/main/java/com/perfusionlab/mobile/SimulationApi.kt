@@ -27,9 +27,52 @@ data class OdeSimulationResponse(
     val stepSeconds: Double, val points: List<OdeSimulationPoint>,
     val modelDescription: String, val limitations: String
 )
+
+data class CoupledSimulationRequest(
+    val ode: OdeSimulationRequest,
+    val effectiveCrossSectionAreaMm2: Double,
+    val domainLengthMm: Double,
+    val dispersionMm2PerSecond: Double,
+    val consumptionRatePerSecond: Double,
+    val equilibriumConcentration: Double,
+    val initialConcentration: Double,
+    val inletConcentration: Double,
+    val spatialNodes: Int,
+    val initialProfile: List<Double>? = null
+)
+data class CoupledVelocityPoint(
+    val timeSeconds: Double,
+    val flowLMin: Double,
+    val axialVelocityMmPerSecond: Double
+)
+data class CoupledProfilePoint(val xMm: Double, val concentration: Double)
+data class CoupledSimulationResponse(
+    val modelVersion: String,
+    val generatedAt: String,
+    val effectiveCrossSectionAreaMm2: Double,
+    val domainLengthMm: Double,
+    val spatialNodes: Int,
+    val dxMm: Double,
+    val pdeTimeStepSeconds: Double,
+    val simulatedDurationSeconds: Double,
+    val maximumAxialVelocityMmPerSecond: Double,
+    val meanAxialVelocityMmPerSecond: Double,
+    val odeTrajectory: List<OdeSimulationPoint>,
+    val velocityTrajectory: List<CoupledVelocityPoint>,
+    val finalConcentrationProfile: List<CoupledProfilePoint>,
+    val outletConcentration: Double,
+    val minimumConcentration: Double,
+    val maximumConcentration: Double,
+    val couplingDescription: String,
+    val limitations: String
+)
+
 interface PerfusionApi {
     @POST("api/v2/simulations/ode-preview")
     suspend fun runOdePreview(@Body request: OdeSimulationRequest): OdeSimulationResponse
+
+    @POST("api/v2/simulations/coupled-preview")
+    suspend fun runCoupledPreview(@Body request: CoupledSimulationRequest): CoupledSimulationResponse
 }
 object ApiClient {
     val service: PerfusionApi by lazy {

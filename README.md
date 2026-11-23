@@ -11,6 +11,8 @@ PerfusionLab is an academic software engineering project exploring computational
 - Responsive Portuguese MVP web console with dashboard, simulation form, recent job history and worker-cluster inventory.
 - Standalone GitHub Pages frontend and same-origin frontend bundled into the Spring Boot Docker image.
 - Java 21 + Spring Boot API and separately runnable worker role from the same artifact.
+- Stateless ODE/PDE preview API with RK4 ODE, SSP-RK2 convection-diffusion-reaction PDE, and an experimental one-way ODE→PDE coupled endpoint.
+- Coupled experiment exposed in the public GitHub Pages MVP, research console and Android Compose client; each client reports results returned by the Spring Boot API rather than fabricating local coupled outputs.
 - Asynchronous jobs dispatched through RabbitMQ and executed by competing worker consumers.
 - PostgreSQL persistence for job inputs, lifecycle timestamps, states, errors and results.
 - Transactional outbox: job row and dispatch event commit in the same PostgreSQL transaction.
@@ -142,6 +144,9 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 
 - GET /api/v1/health
 - POST /api/v1/simulations/preview — synchronous educational preview.
+- POST /api/v2/simulations/ode-preview — RK4 lumped flow/pressure trajectory.
+- POST /api/v2/simulations/pde-transport-preview — experimental 1D SSP-RK2 transport profile.
+- POST /api/v2/simulations/coupled-preview — one-way coupling where ODE flow Q(t) drives PDE axial velocity u(t)=Q(t)/A using an explicit effective area in mm².
 - POST /api/v1/simulations/jobs — enqueue an asynchronous job; returns HTTP 202 and a job ID.
 - GET /api/v1/simulations/jobs?limit=50 — list up to 100 most recent jobs for the web console.
 - GET /api/v1/simulations/jobs/{jobId} — inspect QUEUED, RUNNING, SUCCEEDED or FAILED state and result.
@@ -231,3 +236,18 @@ bash scripts/chaos_smoke.sh
 ~~~
 
 The script starts the stack, interrupts RabbitMQ, submits a simulation while the broker is unavailable, restores the broker and worker pools, then waits for the persisted job to succeed. It is a controlled integration smoke test, not a full chaos-engineering campaign. GitHub Actions also runs it on relevant pull requests and can be triggered manually.
+
+
+## ODE–PDE coupled preview
+
+The coupled endpoint runs the ODE first, converts its flow trajectory from L/min to mm³/s, divides by the explicitly supplied effective cross-sectional area (mm²), and interpolates the resulting axial velocity through the PDE time integration. The effective area is an abstract computational parameter, not a patient-specific vessel or cannula measurement. Coupling is one-way; PDE concentration does not feed back into the ODE. See [the mathematical specification](docs/MATHEMATICAL_MODEL_ODE_PDE.md).
+
+The stateless preview API is isolated from PostgreSQL and RabbitMQ and can be built with:
+
+~~~bash
+cd backend/ode-preview
+mvn test
+~~~
+
+For the browser MVP, configure a Spring Boot API base URL exposing the v2 endpoint. The existing Node preview service does not implement the coupled Spring endpoint. The Android client uses the Gradle property `PERFUSIONLAB_API_BASE_URL`; point it at the deployed Spring Boot API before end-to-end testing.
+

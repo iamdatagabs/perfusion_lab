@@ -1,13 +1,13 @@
 # PerfusionLab — especificação do núcleo matemático ODE/PDE
 
-**Status:** ODE v0.2.0 e PDE experimental v0.3.0 implementados em protótipo.  
+**Status:** ODE v0.2.0, PDE experimental v0.3.0 e acoplamento ODE→PDE v0.1.0 implementados em protótipo.  
 **Escopo:** simulação educacional e pesquisa computacional; não validado clinicamente, não é dispositivo médico e não deve orientar condutas em pacientes.
 
 ## 1. Estratégia de modelagem
 
 1. **EDOs concentradas:** resposta de fluxo e pressão equivalente.
 2. **EDP distribuída:** transporte convectivo-difusivo-reacional unidimensional de concentração equivalente.
-3. **Acoplamento futuro:** variáveis agregadas e condições de contorno poderão conectar os módulos após verificação independente.
+3. **Acoplamento experimental ODE→PDE:** a trajetória de fluxo da ODE alimenta a velocidade axial temporal da PDE. O acoplamento é unidirecional; não há feedback da PDE para a ODE.
 
 ## 2. ODE existente
 
@@ -47,7 +47,7 @@ O termo de reação é fenomenológico; ainda não equivale a consumo metabólic
 \Delta t \leq \frac{0.8}{u/\Delta x+2D/\Delta x^2+k}
 ]
 
-A execução é rejeitada se exceder o orçamento computacional ou sair do intervalo normalizado, sem clipping silencioso.
+A execução é rejeitada se exceder o orçamento computacional ou sair do intervalo normalizado, sem clipping silencioso. No acoplamento, o orçamento também limita o produto entre passos temporais e nós espaciais para evitar execuções excessivamente custosas.
 
 ### Endpoint
 
@@ -55,7 +55,29 @@ A execução é rejeitada se exceder o orçamento computacional ou sair do inter
 
 O endpoint retorna perfil espacial final, dx, dt efetivo, extremos de concentração, condições de contorno e limitações.
 
-## 4. Verificação numérica
+
+## 4. Acoplamento ODE→PDE experimental
+
+O endpoint `POST /api/v2/simulations/coupled-preview` executa a ODE e utiliza cada ponto da trajetória de fluxo para dirigir o transporte PDE.
+
+A conversão dimensional é explícita:
+
+[
+u(t)=\frac{Q(t)\;10^6}{60\,A_{eff}}
+]
+
+- (Q(t)): fluxo da ODE em L/min.
+- (A_{eff}): área transversal efetiva fornecida pelo usuário em mm².
+- (u(t)): velocidade axial em mm/s.
+- O fator (10^6) converte litros em mm³; o fator 60 converte minutos em segundos.
+
+A área é um parâmetro efetivo abstrato do domínio computacional. Não deve ser interpretada como área anatômica, diâmetro de vaso, área de cânula ou medida do circuito. O usuário precisa declará-la; não há inferência automática.
+
+A velocidade é interpolada linearmente entre os pontos da trajetória ODE. O solver PDE usa o maior valor de velocidade previsto para estabelecer o limite conservador de passo explícito e executa SSP-RK2 com velocidade avaliada nas duas etapas. A resposta contém as trajetórias ODE e de velocidade, perfil espacial final, velocidade máxima/média, passo temporal e limitações.
+
+**Natureza do acoplamento:** unidirecional e exploratório. O fluxo da ODE influencia a advecção da PDE; pressão e concentração não retroagem sobre a ODE. A concentração permanece adimensional e não representa saturação sanguínea ou oxigenação tecidual mensurada.
+
+## 5. Verificação numérica
 
 A suíte inclui:
 1. preservação de equilíbrio constante;
@@ -66,6 +88,6 @@ A suíte inclui:
 
 A resposta numérica preserva 12 casas decimais para não mascarar erros pequenos nos testes de convergência. O SSP-RK2 é implementado como combinação convexa de duas etapas de Euler; por isso, mantém o limite de monotonicidade da etapa Euler sob o passo indicado.
 
-## 5. Limitações
+## 6. Limitações
 
 O modelo não representa geometria vascular, distribuição radial, membrana do oxigenador, ligação Hb-O2, curva de dissociação, heterogeneidade tecidual, perfusão capilar ou consumo metabólico medido. Não há validação fisiológica ou clínica. Nenhum indicador deve ser interpretado como estabilidade clínica ou orientação de perfusão.

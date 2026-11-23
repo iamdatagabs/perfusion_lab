@@ -16,7 +16,7 @@
       <button class="nav-item" data-view="jobs"><span>▤</span> Experimentos</button>
       <button class="nav-item" data-view="cluster"><span>⌘</span> Computação distribuída</button>
     </nav>
-    <div class="sidebar-bottom"><div class="connection"><i id="connectionDot"></i><span id="connectionText">Verificando API...</span></div><button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button><div class="side-note">PerfusionLab · MVP 0.2<br>Educational research prototype</div></div>
+    <div class="sidebar-bottom"><div class="connection"><i id="connectionDot"></i><span id="connectionText">Verificando API...</span></div><button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button><div class="side-note">PerfusionLab · MVP 0.3<br>Educational research prototype</div></div>
   </aside>
   <main class="main">
     <header class="topbar"><div class="crumb"><span>PERFUSIONLAB</span><b>/</b><strong id="pageTitle">Visão geral</strong></div><div class="top-actions"><span class="environment"><i></i> AMBIENTE EDUCACIONAL</span><button class="icon-button" id="refreshButton" title="Atualizar dados">↻</button><button class="user-chip" aria-label="Perfil">GP</button></div></header>
@@ -46,7 +46,7 @@
         </div>
       </section>
       <section class="view" id="view-simulate">
-        <div class="page-heading"><div><div class="eyebrow">SIMULATION LAB / 02</div><h1>Nova simulação</h1><p>Configure os parâmetros de entrada e escolha entre prévia imediata ou execução assíncrona.</p></div><span class="version">MODEL v0.1.0-EDUCATIONAL</span></div>
+        <div class="page-heading"><div><div class="eyebrow">SIMULATION LAB / 02</div><h1>Nova simulação</h1><p>Configure os parâmetros de entrada e escolha entre prévia imediata ou execução assíncrona.</p></div><span class="version">MODEL v0.3.0-ODE-PDE</span></div>
         <div class="simulation-layout">
           <form class="panel form-panel" id="simulationForm">
             <div class="panel-heading"><div><span class="eyebrow">INPUT PARAMETERS</span><h2>Parâmetros do modelo</h2></div><span class="required">6 VARIÁVEIS</span></div>
@@ -75,6 +75,30 @@
           </form>
           <aside class="panel output-panel"><div class="panel-heading"><div><span class="eyebrow">MODEL OUTPUT</span><h2>Resultados</h2></div><span class="result-state" id="resultState">AGUARDANDO</span></div><div id="previewResults" class="result-placeholder"><div class="placeholder-icon">⌁</div><strong>Aguardando parâmetros</strong><p>Execute uma prévia para visualizar os resultados estimados pelo modelo.</p></div><div class="disclaimer">⚠ <strong>Uso educacional.</strong> O modelo é simplificado e não possui validação clínica. Nenhum resultado deve ser usado para tomada de decisão assistencial.</div></aside>
         </div>
+        <article class="panel" id="coupledExperimentPanel">
+          <div class="panel-heading"><div><span class="eyebrow">NOVO · ODE → PDE</span><h2>Experimento acoplado</h2><p class="muted">A trajetória de fluxo da EDO é convertida em velocidade axial para alimentar o solver PDE SSP-RK2.</p></div><span class="version">COUPLED v0.1.0</span></div>
+          <div class="form-grid">
+            <label class="form-field"><span>Área transversal efetiva</span><div class="input-unit"><input id="consoleCoupledArea" type="number" min="100" max="1000000" step="100" value="10000"><em>mm²</em></div></label>
+            <label class="form-field"><span>Comprimento do domínio</span><div class="input-unit"><input id="consoleCoupledLength" type="number" min="1" max="100" step="1" value="20"><em>mm</em></div></label>
+            <label class="form-field"><span>Dispersão efetiva</span><div class="input-unit"><input id="consoleCoupledDiffusion" type="number" min="0" max="10" step=".01" value=".15"><em>mm²/s</em></div></label>
+            <label class="form-field"><span>Taxa de relaxamento</span><div class="input-unit"><input id="consoleCoupledReaction" type="number" min="0" max="1" step=".001" value=".025"><em>1/s</em></div></label>
+            <label class="form-field"><span>Concentração inicial</span><div class="input-unit"><input id="consoleCoupledInitial" type="number" min="0" max="1" step=".01" value=".2"><em>0–1</em></div></label>
+            <label class="form-field"><span>Concentração de entrada</span><div class="input-unit"><input id="consoleCoupledInlet" type="number" min="0" max="1" step=".01" value=".95"><em>0–1</em></div></label>
+            <label class="form-field"><span>Equilíbrio reacional</span><div class="input-unit"><input id="consoleCoupledEquilibrium" type="number" min="0" max="1" step=".01" value=".25"><em>0–1</em></div></label>
+            <label class="form-field"><span>Duração</span><div class="input-unit"><input id="consoleCoupledDuration" type="number" min="1" max="300" step="1" value="30"><em>s</em></div></label>
+          </div>
+          <div class="form-actions"><button class="button primary" id="runCoupledConsole" type="button" disabled>Executar acoplamento ODE–PDE</button><span class="muted" id="coupledConsoleStatus">Aguardando conexão com a API Spring Boot v2.</span></div>
+          <div id="coupledConsoleResults" hidden>
+            <div class="stat-grid">
+              <article class="stat-card"><div class="stat-top"><span>VELOCIDADE AXIAL MÁXIMA</span></div><strong id="consoleCoupledMaxVelocity">—</strong><small>mm/s · Q(t)/A</small></article>
+              <article class="stat-card"><div class="stat-top"><span>VELOCIDADE AXIAL MÉDIA</span></div><strong id="consoleCoupledMeanVelocity">—</strong><small>mm/s</small></article>
+              <article class="stat-card"><div class="stat-top"><span>CONCENTRAÇÃO DE SAÍDA</span></div><strong id="consoleCoupledOutlet">—</strong><small>adimensional</small></article>
+              <article class="stat-card"><div class="stat-top"><span>PASSO TEMPORAL PDE</span></div><strong id="consoleCoupledDt">—</strong><small>s · SSP-RK2</small></article>
+            </div>
+            <div class="panel"><h3>Perfil espacial final</h3><canvas id="consoleCoupledChart" height="180" style="width:100%;max-height:220px"></canvas><h3>Velocidade axial ao longo do tempo</h3><canvas id="consoleCoupledVelocityChart" height="180" style="width:100%;max-height:220px"></canvas><p class="subtle-note" id="consoleCoupledDescription"></p></div>
+          </div>
+          <p class="subtle-note">A área transversal é um parâmetro efetivo abstrato, não uma medida anatômica ou de cânula. A concentração é adimensional e o termo reacional é fenomenológico. Protótipo sem validação fisiológica/clínica; não utilizar para decisões assistenciais.</p>
+        </article>
         <article class="panel timeline-panel">
           <div class="panel-heading"><div><span class="eyebrow">TIME-INDEXED SCENARIO</span><h2>Evolução temporal de cenário</h2><p class="muted">Interpola linearmente uma variável de entrada e recalcula o modelo estático em cada instante.</p></div><span class="version">MAX 361 PONTOS</span></div>
           <div class="timeline-controls">
@@ -136,5 +160,5 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="./app.js?v=idhc-20261121" defer></script>
+<script src="./app.js?v=ode-pde-coupled-20261122" defer></script>
 </body></html>
