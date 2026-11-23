@@ -91,3 +91,12 @@ A resposta numérica preserva 12 casas decimais para não mascarar erros pequeno
 ## 6. Limitações
 
 O modelo não representa geometria vascular, distribuição radial, membrana do oxigenador, ligação Hb-O2, curva de dissociação, heterogeneidade tecidual, perfusão capilar ou consumo metabólico medido. Não há validação fisiológica ou clínica. Nenhum indicador deve ser interpretado como estabilidade clínica ou orientação de perfusão.
+
+
+## 6. Fundação inicial de CFD
+
+A primeira etapa computacional de CFD foi iniciada em cfd/. O problema reduzido resolve a evolução transiente da velocidade axial em um tubo circular reto, rígido, sob hipóteses de fluido incompressível e newtoniano, escoamento laminar e totalmente desenvolvido. A discretização radial usa volumes finitos em células centradas e integração explícita no tempo.
+
+A solução estacionária é comparada ao perfil de Poiseuille. Os testes iniciais cobrem repouso sob gradiente de pressão nulo, perfil analítico, parâmetros inválidos, finitude e aproximação do estado estacionário. Isso constitui verificação inicial de um problema de referência; não valida o modelo contra sangue, cânulas, oxigenadores ou dados clínicos.
+
+A especificação e as limitações estão em CFD_AND_3D_ROADMAP.md.

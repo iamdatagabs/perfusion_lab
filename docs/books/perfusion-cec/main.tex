@@ -1,0 +1,101 @@
+\documentclass[11pt,a4paper,oneside]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern,microtype}
+\usepackage{geometry}
+\geometry{margin=2.6cm}
+\usepackage{amsmath,amssymb}
+\usepackage{siunitx,booktabs,hyperref,enumitem}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\title{Perfusão e Circulação Extracorpórea\\\large Fundamentos médicos para uma abordagem interdisciplinar}
+\author{Gabriel Passos de Jesus\\\small PerfusionLab}
+\date{Versão de trabalho — novembro de 2026}
+\begin{document}
+\frontmatter
+\maketitle
+\chapter*{Nota de escopo}
+Este material é uma apostila introdutória de caráter educacional. Não substitui formação profissional, protocolos institucionais, supervisão de perfusionistas ou literatura especializada. O PerfusionLab é um protótipo de pesquisa computacional, não um dispositivo médico nem sistema de apoio à decisão clínica. Nenhuma equação, faixa numérica ou saída do software deve ser utilizada para definir parâmetros de assistência a pacientes.
+\tableofcontents
+\mainmatter
+\chapter{Introdução à perfusão}
+A circulação extracorpórea (CEC) permite, em procedimentos selecionados, assumir temporariamente parte das funções de circulação e trocas gasosas por meio de um circuito extracorpóreo. A técnica integra equipe cirúrgica, anestesia, perfusão, enfermagem e engenharia clínica. Seu funcionamento deve ser compreendido como um sistema fisiológico-tecnológico, e não como uma bomba isolada.
+
+\section{Objetivos conceituais}
+A CEC busca manter fluxo sanguíneo sistêmico e troca gasosa durante etapas nas quais a circulação nativa é modificada ou interrompida. O circuito inclui drenagem venosa, reservatório, bomba, oxigenador, trocador térmico, filtros, linhas e cânulas, cuja configuração depende do procedimento e da tecnologia empregada.
+
+\section{Sistema e fronteiras}
+Para estudar o sistema, define-se uma fronteira de controle: sangue entra pelo segmento venoso e retorna pelo segmento arterial; energia é fornecida pela bomba; calor é transferido no trocador; gases atravessam a membrana do oxigenador. Pressão, vazão, temperatura e composição do sangue são variáveis distintas e interdependentes.
+
+\chapter{Fisiologia cardiovascular essencial}
+\section{Pressão, fluxo e resistência}
+Uma aproximação hemodinâmica frequentemente utilizada é
+\[
+\Delta P=QR,
+\]
+em que $\Delta P$ é a diferença de pressão, $Q$ é a vazão e $R$ é a resistência hidráulica equivalente. Trata-se de uma relação macroscópica, dependente das hipóteses do modelo; não descreve por si só a distribuição regional do fluxo.
+
+\section{Débito cardíaco e pressão arterial média}
+O débito cardíaco pode ser expresso como frequência cardíaca multiplicada pelo volume sistólico. A pressão arterial média depende de múltiplos fatores, incluindo débito, resistência vascular, complacência e condições de medida. Relações simplificadas são úteis para raciocínio, mas não devem ser convertidas em regras clínicas isoladas.
+
+\section{Complacência e autorregulação}
+A complacência descreve a variação de volume em relação à variação de pressão. A autorregulação representa mecanismos locais que modulam o fluxo diante de alterações de pressão e demanda. Esses mecanismos variam entre órgãos e condições fisiológicas.
+
+\chapter{Componentes do circuito de CEC}
+\section{Drenagem venosa e reservatório}
+A drenagem pode depender de gradientes hidrostáticos e estratégias assistidas. O reservatório recebe o retorno venoso e permite acomodar variações de volume no circuito. O projeto deve considerar interfaces, conexões, volume de prime e segurança operacional.
+
+\section{Bomba}
+Bombas de roletes e centrífugas possuem princípios físicos e características de operação diferentes. A vazão efetiva depende da tecnologia, das condições do circuito e das propriedades do fluido. A descrição didática não substitui treinamento específico do equipamento.
+
+\section{Oxigenador e trocador térmico}
+O oxigenador de membrana promove transferência de oxigênio e remoção de dióxido de carbono através de uma barreira gás-sangue. O trocador térmico modifica a temperatura do sangue por transferência de calor. O desempenho depende de área efetiva, propriedades de transporte, geometria e condições de operação.
+
+\section{Filtros, linhas e cânulas}
+Linhas e cânulas introduzem resistência hidráulica e perdas de carga. Filtros e conectores modificam o campo de escoamento e podem gerar regiões de recirculação. A geometria real precisa ser obtida de documentação técnica apropriada antes de qualquer modelagem quantitativa.
+
+\chapter{Fases e organização do procedimento}
+A sequência de preparação, canulação, início de CEC, manutenção, reaquecimento quando aplicável, saída de CEC e encerramento é apresentada aqui apenas como mapa conceitual. A sequência efetiva varia conforme cirurgia, paciente, equipe e protocolo. A apostila não descreve condutas operacionais.
+
+\chapter{Monitorização e variáveis}
+\section{Variáveis de sistema}
+Entre as variáveis estudadas em modelos estão vazão, pressão arterial e de linha, temperatura, saturação, hemoglobina, gases sanguíneos e estimativas de oferta de oxigênio. Cada medida possui método, unidade, incerteza, local de amostragem e contexto temporal próprios.
+
+\section{Oferta de oxigênio}
+Uma formulação simplificada da oferta sistêmica de oxigênio é
+\[
+D_{O_2}=Q\,C_{aO_2},
+\]
+com conversões de unidade explícitas. O conteúdo arterial depende principalmente da hemoglobina e da saturação, além da fração dissolvida. Uma estimativa matemática não equivale à avaliação de oxigenação tecidual.
+
+\chapter{Segurança: perspectiva sistêmica}
+A CEC envolve riscos relacionados a sangue, superfícies artificiais, anticoagulação, embolia, hemólise, inflamação, temperatura, pressão e integridade do circuito. O estudo seguro desses temas exige fontes clínicas atualizadas e discussão com especialistas. O software não classifica risco nem recomenda intervenções.
+
+\chapter{Da fisiologia ao modelo computacional}
+\section{Abstração}
+Um modelo seleciona variáveis de estado, parâmetros, entradas e saídas. A redução de um sistema biológico a poucas equações é sempre parcial. Hipóteses e limites devem acompanhar os resultados.
+
+\section{Modelos concentrados e distribuídos}
+Modelos concentrados representam o sistema por compartimentos e equações diferenciais ordinárias. Modelos distribuídos descrevem variações no espaço e no tempo por equações diferenciais parciais. CFD acrescenta a descrição espacial do campo de velocidade e pressão, sujeita às hipóteses e condições de contorno.
+
+\section{Como ler o PerfusionLab}
+O protótipo explora trajetórias hemodinâmicas simplificadas, transporte unidimensional e infraestrutura computacional distribuída. Indicadores são descritores matemáticos de cenários artificiais; não representam estados clínicos.
+
+\chapter{Glossário}
+\begin{description}[style=nextline]
+\item[CEC] Circulação extracorpórea.
+\item[Perfusão] Distribuição de fluxo sanguíneo aos tecidos.
+\item[Oxigenador] Componente de troca gasosa do circuito.
+\item[Complacência] Variação de volume por variação de pressão.
+\item[DO$_2$] Oferta de oxigênio.
+\item[CFD] Dinâmica dos fluidos computacional.
+\end{description}
+\backmatter
+\chapter*{Referências para aprofundamento}
+\begin{thebibliography}{9}
+\bibitem{gravlee} Gravlee, G. P.; Davis, R. F.; Stammers, A. H.; Ungerleider, R. M. (eds.). \textit{Cardiopulmonary Bypass and Mechanical Support: Principles and Practice}. Wolters Kluwer.
+\bibitem{kaplan} Kaplan, J. A. et al. \textit{Kaplan's Cardiac Anesthesia}. Elsevier.
+\bibitem{guyton} Hall, J. E. \textit{Guyton and Hall Textbook of Medical Physiology}. Elsevier.
+\bibitem{elso} Extracorporeal Life Support Organization (ELSO). Guidelines and educational resources. \url{https://www.elso.org/}
+\end{thebibliography}
+\end{document}

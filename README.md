@@ -251,3 +251,24 @@ mvn test
 
 For the browser MVP, configure a Spring Boot API base URL exposing the v2 endpoint. The existing Node preview service does not implement the coupled Spring endpoint. The Android client uses the Gradle property `PERFUSIONLAB_API_BASE_URL`; point it at the deployed Spring Boot API before end-to-end testing.
 
+
+
+## Pesquisa em CFD e modelagem 3D
+
+O repositório inicia uma fundação de CFD em cfd/: um modelo transiente axisimétrico reduzido para escoamento laminar totalmente desenvolvido em tubo circular rígido, com discretização radial por volumes finitos e comparação com o perfil analítico de Poiseuille. Esse solver é um problema de verificação inicial, não um solver Navier–Stokes 3D, não representa uma cânula real e não foi validado para uso clínico.
+
+A montagem CAD conceitual está em geometry/perfusion_circuit.scad (OpenSCAD). Reservatório, bomba, oxigenador, linhas e cânulas são formas esquemáticas, sem dimensões de fabricantes ou alegação de fabricabilidade.
+
+## Apostilas em LaTeX
+
+- Perfusão e CEC — fundamentos médicos: docs/books/perfusion-cec/main.tex
+- Engenharia aplicada à perfusão — matemática, métodos numéricos e CFD: docs/books/engineering-mathematics/main.tex
+- Roadmap de CFD e modelagem 3D: docs/CFD_AND_3D_ROADMAP.md
+
+Compile cada apostila a partir de sua pasta com latexmk -pdf main.tex (ou pdflatex main.tex, executado duas vezes para atualizar o sumário).
+
+## Research MVP
+
+A nova página conceitual está em mvp.html. Após publicação no GitHub Pages, ela estará disponível em https://iamdatagabs.github.io/perfusion_lab/mvp.html. O console operacional existente permanece em frontend/index.html.
+
+O projeto está em desenvolvimento individual neste estágio. A arquitetura prevê contribuições futuras, mas ainda não há contributor adicional integrado.
