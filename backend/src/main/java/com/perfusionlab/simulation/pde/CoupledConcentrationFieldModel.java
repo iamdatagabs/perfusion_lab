@@ -99,7 +99,7 @@ public class CoupledConcentrationFieldModel {
                     ? 2.0 * (current[i - 1][j] - center) / (dx * dx)
                     : (current[i + 1][j] - 2.0 * center + current[i - 1][j]) / (dx * dx);
                 int jm = Math.max(0, j - 1), jp = Math.min(nz - 1, j + 1);
-                double lapZ = (current[i][jp] - 2.0 * center + current[i][jm]) / (dz * dz);
+                double lapZ = j == 0\n                    ? 2.0 * (current[i][1] - center) / (dz * dz)\n                    : j == nz - 1\n                        ? 2.0 * (current[i][nz - 2] - center) / (dz * dz)\n                        : (current[i][jp] - 2.0 * center + current[i][jm]) / (dz * dz);
                 double derivative = -velocity * adv + diffusion * (lapX + lapZ)
                     - reaction * (center - r.coupled().equilibriumConcentration());
                 result[i][j] = center + dt * derivative;
