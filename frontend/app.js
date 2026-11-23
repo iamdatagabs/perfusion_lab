@@ -1,9 +1,9 @@
 const API_KEY='perfusionlab.apiBase';
-const SPRING_API_BASE='https://perfusionlab-api.onrender.com';
+const SPRING_API_BASE='https://perfusionlab-spring-api.onrender.com';
 const defaultBase=()=>location.hostname==='localhost'||location.hostname==='127.0.0.1'?'':SPRING_API_BASE;
 const savedApiBase=(localStorage.getItem(API_KEY)||'').replace(/\/$/,'');
-const LEGACY_PREVIEW_API='https://perfusionlab-preview-api-orsn.onrender.com';
-if(savedApiBase===LEGACY_PREVIEW_API){localStorage.setItem(API_KEY,SPRING_API_BASE)}
+const LEGACY_API_BASES=['https://perfusionlab-preview-api-orsn.onrender.com','https://perfusionlab-api.onrender.com'];
+if(LEGACY_API_BASES.includes(savedApiBase)){localStorage.setItem(API_KEY,SPRING_API_BASE)}
 let apiBase=(localStorage.getItem(API_KEY)||defaultBase()).replace(/\/$/,'');
 const $=id=>document.getElementById(id);
 const state={jobs:[],nodes:[],capacity:[],activeJob:null,pollTimer:null,batchPollTimer:null,refreshTimer:null,sweepInputs:[],sweepResults:[],timeline:null,multivariateTimeline:null,mathReference:null,supportsCoupled:false};
