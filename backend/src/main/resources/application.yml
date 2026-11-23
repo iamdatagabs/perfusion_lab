@@ -6,7 +6,7 @@ spring:
     username: ${DB_USER:perfusionlab}
     password: ${DB_PASSWORD:perfusionlab_dev}
     hikari:
-      maximum-pool-size: ${DB_POOL_SIZE:10}
+      maximum-pool-size: ${DB_POOL_SIZE:3}
   flyway:
     enabled: true
   rabbitmq:
