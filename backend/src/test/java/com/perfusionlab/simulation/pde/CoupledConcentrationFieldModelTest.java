@@ -36,8 +36,10 @@ class CoupledConcentrationFieldModelTest {
     void preservesSpatiallyUniformEquilibriumExactly() {
         var ode = new OdeSimulationRequest(2.0, 4.0, 10.0, .98, 1200.0,
             1.8, 2.0, 3.0, 5.0, 2.0, .1);
+        // Request order: dispersion, consumption, equilibrium, initial, inlet.
+        // All three concentrations are equal, so the constant field is an exact steady state.
         var coupled = new CoupledSimulationRequest(ode, 10_000.0, 20.0,
-            .15, .025, .25, .2, .5, 21, null);
+            .15, .025, .5, .5, .5, 21, null);
         var result = model.evaluate(new CoupledFieldRequest(coupled, 9, 8.0, 5));
 
         for (var snapshot : result.snapshots()) {
