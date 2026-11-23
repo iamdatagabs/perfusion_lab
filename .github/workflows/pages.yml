@@ -2,9 +2,9 @@ name: Deploy PerfusionLab MVP
 on:
   push:
     branches: [main, "fix/new-mvp-pages-indicators", "feat/cfd-3d-mvp-documentation"]
-    paths: ["index.html", "mvp.html", "assets/**", "tests/**", "README.md", ".github/workflows/pages.yml"]
+    paths: ["index.html", "mvp.html", "assets/**", "frontend/**", "tests/**", "README.md", ".github/workflows/pages.yml"]
   pull_request:
-    paths: ["index.html", "mvp.html", "assets/**", "tests/**", ".github/workflows/pages.yml"]
+    paths: ["index.html", "mvp.html", "assets/**", "frontend/**", "tests/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 permissions:
   contents: read
