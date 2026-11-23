@@ -142,8 +142,10 @@ python scripts/benchmark_grid.py --profile GENERAL --jobs 100 --parallelism 4 --
 
 ## API
 
-- GET /api/v1/health
+- GET /api/v1/health — service identity and runtime capabilities (`grid`, `timeline`, `multivariate-timeline`, `ode-pde-coupled`).
 - POST /api/v1/simulations/preview — synchronous educational preview.
+- POST /api/v1/simulations/timeline — server-generated time series from a linearly interpolated input.
+- POST /api/v1/simulations/timeline/multivariate — server-generated time series with multiple interpolated inputs.
 - POST /api/v2/simulations/ode-preview — RK4 lumped flow/pressure trajectory.
 - POST /api/v2/simulations/pde-transport-preview — experimental 1D SSP-RK2 transport profile.
 - POST /api/v2/simulations/coupled-preview — one-way coupling where ODE flow Q(t) drives PDE axial velocity u(t)=Q(t)/A using an explicit effective area in mm².
@@ -249,7 +251,9 @@ cd backend/ode-preview
 mvn test
 ~~~
 
-For the browser MVP, configure a Spring Boot API base URL exposing the v2 endpoint. The existing Node preview service does not implement the coupled Spring endpoint. The Android client uses the Gradle property `PERFUSIONLAB_API_BASE_URL`; point it at the deployed Spring Boot API before end-to-end testing.
+The Node preview service is intentionally limited to stateless preview calculations. The full web console defaults to `https://perfusionlab-api.onrender.com` and requires the Spring Boot service for Grid, jobs, worker inventory, timeline generation and ODE–PDE coupling. Configure the Spring Boot base URL in **Configurações** when using another deployment. The Android client uses the Gradle property `PERFUSIONLAB_API_BASE_URL`; point it at the deployed Spring Boot API before end-to-end testing.
+
+For a complete Render deployment, review [`render.grid.yaml`](render.grid.yaml) and [the Spring Boot/Grid deployment guide](docs/SPRING_BOOT_GRID_DEPLOYMENT.md). This Blueprint provisions a public Spring API, PostgreSQL, a private RabbitMQ broker and three worker profiles. It uses paid compute and a persistent disk; creating or applying it is a separate infrastructure decision.
 
 
 
