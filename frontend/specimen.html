@@ -42,7 +42,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 24px 28px;color:#6e879b;font-siz
 <div class="control"><div class="control-head"><label for="radius">Raio</label><output id="radiusValue">35 mm</output></div><input id="radius" type="range" min="15" max="60" step="1" value="35"></div>
 <div class="control"><div class="control-head"><label for="height">Comprimento</label><output id="heightValue">90 mm</output></div><input id="height" type="range" min="40" max="160" step="5" value="90"></div>
 <div class="metrics"><div class="metric"><small>DIÂMETRO</small><strong id="diameter">70 mm</strong></div><div class="metric"><small>VOLUME</small><strong id="volume">346,4 cm³</strong></div><div class="metric"><small>ÁREA TRANSVERSAL</small><strong id="area">38,5 cm²</strong></div><div class="metric"><small>SEGMENTOS RADIAIS</small><strong>96</strong></div></div>
-<div class="actions"><button id="reset">Restaurar padrão</button><button id="wireframe" class="secondary">Alternar malha</button><a class="download" href="./assets/heart-cylinder.stl" download>Baixar STL</a><a class="download secondary" href="./assets/heart-cylinder.obj" download>Baixar OBJ</a></div>
+<div class="actions"><button id="reset">Restaurar padrão</button><button id="wireframe" class="secondary">Alternar malha</button><button id="downloadStl">Exportar STL atual</button><button id="downloadObj" class="secondary">Exportar OBJ atual</button><a class="download" href="./assets/heart-cylinder.stl" download>STL padrão</a><a class="download secondary" href="./assets/heart-cylinder.obj" download>OBJ padrão</a></div>
 <div class="specs"><h2>Especificação inicial</h2><ul><li>Geometria: cilindro circular reto, tampas planas.</li><li>Dimensões padrão: Ø 70 × 90 mm.</li><li>Material visual: superfície translúcida vermelho-coral.</li><li>Uso previsto: corpo de prova conceitual, impressão 3D e integração futura.</li></ul></div>
 <div class="note"><strong>Limite do modelo:</strong> o cilindro é apenas um sólido geométrico abstrato. Não reproduz câmaras, válvulas, miocárdio, orientação anatômica ou propriedades mecânicas do coração. Não é um modelo anatômico ou clínico.</div>
 </aside>
@@ -52,6 +52,8 @@ footer{max-width:1280px;margin:0 auto;padding:0 24px 28px;color:#6e879b;font-siz
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {STLExporter} from 'three/addons/exporters/STLExporter.js';
+import {OBJExporter} from 'three/addons/exporters/OBJExporter.js';
 const root=document.getElementById('viewer'),scene=new THREE.Scene();scene.background=new THREE.Color('#0b1925');
 const camera=new THREE.PerspectiveCamera(42,1,.1,1000);camera.position.set(155,125,185);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;root.appendChild(renderer.domElement);
@@ -77,6 +79,9 @@ new ResizeObserver(resize).observe(root);resize();rebuild();
 document.getElementById('radius').addEventListener('input',rebuild);document.getElementById('height').addEventListener('input',rebuild);
 document.getElementById('reset').addEventListener('click',()=>{document.getElementById('radius').value=35;document.getElementById('height').value=90;wire=false;document.getElementById('wireframe').textContent='Alternar malha';rebuild()});
 document.getElementById('wireframe').addEventListener('click',()=>{wire=!wire;document.getElementById('wireframe').textContent=wire?'Exibir superfície':'Alternar malha';rebuild()});
+function saveFile(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+document.getElementById('downloadStl').addEventListener('click',()=>{const exportMesh=new THREE.Mesh(mesh.geometry.clone(),new THREE.MeshStandardMaterial());exportMesh.updateMatrixWorld(true);saveFile('perfusionlab-cylinder-current.stl',new STLExporter().parse(exportMesh),'model/stl');exportMesh.geometry.dispose();exportMesh.material.dispose()});
+document.getElementById('downloadObj').addEventListener('click',()=>saveFile('perfusionlab-cylinder-current.obj',new OBJExporter().parse(mesh),'text/plain'));
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
 </script>
 </body></html>
