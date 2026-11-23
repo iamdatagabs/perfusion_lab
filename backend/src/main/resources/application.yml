@@ -2,7 +2,7 @@ spring:
   application:
     name: perfusionlab
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/perfusionlab}
+    url: ${DATABASE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:perfusionlab}}
     username: ${DB_USER:perfusionlab}
     password: ${DB_PASSWORD:perfusionlab_dev}
     hikari:
