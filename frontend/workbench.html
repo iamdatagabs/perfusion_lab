@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#08131f">
+<title>PerfusionLab | Bancada cardíaca integrada</title>
+<link rel="stylesheet" href="./styles.css?v=integrated-workbench-01">
+<style>
+.workbench-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px}.workbench-head h1{font-size:29px;margin:7px 0}.workbench-head p{color:var(--muted);margin:0}.wb-grid{display:grid;grid-template-columns:minmax(240px,.78fr) minmax(420px,1.5fr) minmax(250px,.82fr);gap:14px;align-items:start}.wb-panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:16px;margin-bottom:14px}.wb-panel h2{font-size:14px;margin:4px 0 13px}.wb-field{display:grid;gap:5px;margin:12px 0;color:#c6d6df;font-size:11px}.wb-field span{display:flex;justify-content:space-between;gap:8px}.wb-field output{font:10px 'DM Mono',monospace;color:var(--cyan)}.wb-field input{width:100%;accent-color:var(--cyan)}.wb-field input[type=number],.wb-field input[type=url]{border:1px solid #294252;background:#081722;border-radius:8px;color:#f1f8fb;padding:9px}.wb-view{height:570px;min-height:440px;position:relative;overflow:hidden;padding:0}.wb-view canvas{display:block;width:100%;height:100%}.wb-view-label{position:absolute;z-index:2;top:14px;left:15px;pointer-events:none}.wb-view-label strong{display:block;font-size:12px;margin-top:5px}.wb-legend{position:absolute;bottom:12px;left:14px;right:14px;display:flex;flex-wrap:wrap;gap:12px;color:#9bb0bd;font:9px 'DM Mono',monospace;pointer-events:none}.wb-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.wb-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}.wb-metric{background:#081722;border:1px solid var(--line);border-radius:9px;padding:11px}.wb-metric small{display:block;color:#8299a8;font:9px 'DM Mono',monospace}.wb-metric strong{display:block;color:var(--cyan);font-size:19px;margin-top:5px}.wb-status{font-size:10px;color:#8ea6b4;line-height:1.6;margin-top:10px}.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.wb-chart{width:100%;height:150px;background:#081722;border:1px solid var(--line);border-radius:9px}.wb-callout{border-left:2px solid var(--amber);padding:9px 11px;background:#3a301c33;color:#cdb887;font-size:10px;line-height:1.6;margin-top:12px}.wb-connections{display:grid;gap:6px;color:#9ab0bd;font:10px 'DM Mono',monospace}.wb-connections b{color:var(--cyan)}@media(max-width:1120px){.wb-grid{grid-template-columns:1fr 1.4fr}.wb-right{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:14px}.wb-right .wb-panel{margin:0}}@media(max-width:760px){.wb-grid{grid-template-columns:1fr}.wb-view{height:460px;min-height:400px}.wb-right{grid-column:auto;display:block}.wb-right .wb-panel{margin-bottom:14px}.workbench-head{align-items:flex-start;flex-direction:column}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="./index.html"><span class="brand-mark">P</span><span>PERFUSION<span class="brand-accent">LAB</span><small>RESEARCH CONSOLE</small></span></a>
+<div class="side-label">WORKSPACE</div>
+<nav class="nav">
+<a class="nav-item" href="./index.html">◫ Console principal</a>
+<a class="nav-item active" href="./workbench.html">♥ Bancada integrada</a>
+<a class="nav-item" href="./specimen.html">⬡ Corpo de prova 3D</a>
+</nav>
+<div class="sidebar-bottom"><div class="side-note">PerfusionLab · Integrated Workbench<br>Educational research prototype</div></div>
+</aside>
+<main class="main">
+<header class="topbar"><div class="crumb"><span>PERFUSIONLAB</span><b>/</b><strong>Bancada cardíaca integrada</strong></div><div class="top-actions"><span class="environment"><i></i> AMBIENTE EDUCACIONAL</span><a class="button secondary small" href="./index.html">Console ↗</a></div></header>
+<div class="content">
+<div class="workbench-head"><div><div class="eyebrow">CARDIAC MODEL / ODE → PDE → 3D</div><h1>Bancada hemodinâmica e perfusão</h1><p>Geometria cardíaca paramétrica, parâmetros hemodinâmicos e transporte acoplado em uma única interface.</p></div><span class="version">WORKBENCH v0.1.0</span></div>
+<div class="notice"><span>ⓘ</span><div><strong>Modelo educacional simplificado</strong><p>As câmaras são volumes geométricos aproximados; o transporte PDE é unidimensional e dirige partículas ilustrativas na cena 3D. Não é CFD 3D, modelo anatômico validado ou ferramenta clínica.</p></div></div>
+<div class="wb-grid">
+<section class="wb-panel">
+<div class="eyebrow">01 · INPUTS</div><h2>Hemodinâmica</h2>
+<label class="wb-field"><span>Fluxo-alvo <output id="flowOut">4,8 L/min</output></span><input id="flow" type="range" min=".5" max="8" step=".1" value="4.8"></label>
+<label class="wb-field"><span>Hemoglobina <output id="hbOut">10 g/dL</output></span><input id="hb" type="range" min="5" max="20" step=".1" value="10"></label>
+<label class="wb-field"><span>Saturação arterial <output id="satOut">98%</output></span><input id="sat" type="range" min="70" max="100" step="1" value="98"></label>
+<label class="wb-field"><span>Resistência vascular sistêmica <output id="svrOut">1200</output></span><input id="svr" type="range" min="400" max="2500" step="10" value="1200"></label>
+<div class="eyebrow" style="margin-top:22px">02 · GEOMETRY</div><h2>Parâmetros do coração</h2>
+<label class="wb-field"><span>Escala longitudinal <output id="scaleOut">1,00×</output></span><input id="scale" type="range" min=".75" max="1.35" step=".01" value="1"></label>
+<label class="wb-field"><span>Espessura relativa da parede <output id="wallOut">0,12</output></span><input id="wall" type="range" min=".06" max=".22" step=".01" value=".12"></label>
+<label class="wb-field"><span>Separação septal <output id="septumOut">0,18</output></span><input id="septum" type="range" min=".1" max=".3" step=".01" value=".18"></label>
+<div class="wb-actions"><button class="button secondary small" id="resetGeometry" type="button">Restaurar geometria</button><button class="button secondary small" id="toggleLabels" type="button">Rótulos: ON</button></div>
+<div class="wb-callout">Geometria esquemática: quatro câmaras representadas por volumes elipsoidais, septo e conexões vasculares. Dimensões relativas são editáveis, mas não equivalem a medidas anatômicas reais.</div>
+</section>
+<section class="wb-panel wb-view" id="heartViewport">
+<div class="wb-view-label"><div class="eyebrow">03 · 3D HEART MODEL</div><strong>Fluxo sistêmico e pulmonar</strong></div>
+<div class="wb-legend"><span><i style="background:#e36b78"></i>Sangue venoso / lado direito</span><span><i style="background:#df525c"></i>Artéria pulmonar</span><span><i style="background:#59c7d7"></i>Retorno pulmonar</span><span><i style="background:#df535c"></i>Saída aórtica</span><span><i style="background:#f5d58a"></i>Partículas</span></div>
+</section>
+<aside class="wb-right">
+<section class="wb-panel"><div class="eyebrow">04 · MODEL OUTPUT</div><h2>Indicadores derivados</h2>
+<div class="wb-metrics">
+<div class="wb-metric"><small>PAM ESTIMADA</small><strong id="map">—</strong></div>
+<div class="wb-metric"><small>DO₂ ESTIMADA</small><strong id="do2">—</strong></div>
+<div class="wb-metric"><small>DO₂i ESTIMADA</small><strong id="do2i">—</strong></div>
+<div class="wb-metric"><small>VELOCIDADE AXIAL</small><strong id="velocity">—</strong></div>
+</div><p class="wb-status" id="hemoStatus">Os indicadores estáticos são atualizados ao mover os controles.</p></section>
+<section class="wb-panel"><div class="eyebrow">05 · ODE → PDE</div><h2>Transporte e perfusão</h2>
+<label class="wb-field"><span>Área transversal efetiva</span><input id="area" type="number" min="100" max="1000000" step="100" value="10000"></label>
+<label class="wb-field"><span>Comprimento do domínio (mm)</span><input id="length" type="number" min="1" max="100" step="1" value="20"></label>
+<label class="wb-field"><span>Dispersão (mm²/s)</span><input id="diffusion" type="number" min="0" max="10" step=".01" value=".15"></label>
+<label class="wb-field"><span>Duração (s)</span><input id="duration" type="number" min="1" max="300" value="30"></label>
+<label class="wb-field"><span>API Spring Boot</span><input id="apiBase" type="url" value="https://perfusionlab-spring-api.onrender.com"></label>
+<div class="wb-actions"><button class="button primary" id="runCoupled" type="button">Executar ODE–PDE</button><button class="button secondary small" id="playFlow" type="button">Pausar fluxo</button></div>
+<p class="wb-status" id="runStatus" aria-live="polite">Aguardando execução do solver acoplado.</p>
+<div class="wb-metrics" style="margin-top:10px"><div class="wb-metric"><small>CONCENTRAÇÃO NA SAÍDA</small><strong id="outlet">—</strong></div><div class="wb-metric"><small>PASSO PDE</small><strong id="pdeDt">—</strong></div></div>
+</section>
+</aside>
+</div>
+<section class="wb-panel" style="margin-top:14px"><div class="eyebrow">06 · SPATIAL TRANSPORT</div><h2>Perfil final de concentração</h2><canvas class="wb-chart" id="profileChart" height="150"></canvas><p class="wb-status" id="modelInfo">Aguardando dados do solver. As partículas na cena são uma representação visual da trajetória de fluxo, não a solução espacial completa de Navier–Stokes.</p></section>
+</div>
+</main>
+</div>
+<script type="module" src="./workbench.js?v=integrated-workbench-01"></script>
+</body></html>
