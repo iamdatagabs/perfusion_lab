@@ -1,0 +1,259 @@
+# Optional full-stack Render deployment for the Spring Boot API + durable Grid.
+# This is intentionally separate from render.yaml, which keeps the lightweight Node preview API.
+# Provisioning this Blueprint creates paid compute services and a persistent RabbitMQ disk.
+services:
+  - type: pserv
+    name: perfusionlab-rabbitmq
+    runtime: image
+    image:
+      url: docker.io/library/rabbitmq:3-management-alpine
+    region: virginia
+    plan: 0.5c-512mb
+    disk:
+      name: rabbitmq-data
+      mountPath: /var/lib/rabbitmq
+      sizeGB: 1
+    envVars:
+      - key: RABBITMQ_DEFAULT_USER
+        value: perfusionlab
+      - key: RABBITMQ_DEFAULT_PASS
+        generateValue: true
+
+  - type: web
+    name: perfusionlab-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: 1c-2g
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PERFUSION_ROLE
+        value: api
+      - key: DB_HOST
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: password
+      - key: RABBITMQ_HOST
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_USER
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: PERFUSION_ADMIN_TOKEN
+        generateValue: true
+      - key: TRACING_SAMPLING_PROBABILITY
+        value: "0.0"
+
+  - type: worker
+    name: perfusionlab-worker-general
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: 1c-2g
+    envVars:
+      - key: PERFUSION_ROLE
+        value: worker
+      - key: PERFUSION_WORKER_PROFILE
+        value: GENERAL
+      - key: WORKER_NODE_ID
+        value: render-general
+      - key: WORKER_CPU_CORES
+        value: "1"
+      - key: WORKER_MEMORY_MB
+        value: "2048"
+      - key: WORKER_SLOTS
+        value: "1"
+      - key: SPRING_MAIN_WEB_APPLICATION_TYPE
+        value: none
+      - key: DB_HOST
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: password
+      - key: RABBITMQ_HOST
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_USER
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: TRACING_SAMPLING_PROBABILITY
+        value: "0.0"
+
+  - type: worker
+    name: perfusionlab-worker-memory
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: 1c-2g
+    envVars:
+      - key: PERFUSION_ROLE
+        value: worker
+      - key: PERFUSION_WORKER_PROFILE
+        value: MEMORY
+      - key: WORKER_NODE_ID
+        value: render-memory
+      - key: WORKER_CPU_CORES
+        value: "1"
+      - key: WORKER_MEMORY_MB
+        value: "2048"
+      - key: WORKER_SLOTS
+        value: "1"
+      - key: SPRING_MAIN_WEB_APPLICATION_TYPE
+        value: none
+      - key: DB_HOST
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: password
+      - key: RABBITMQ_HOST
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_USER
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: TRACING_SAMPLING_PROBABILITY
+        value: "0.0"
+
+  - type: worker
+    name: perfusionlab-worker-compute
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: 1c-2g
+    envVars:
+      - key: PERFUSION_ROLE
+        value: worker
+      - key: PERFUSION_WORKER_PROFILE
+        value: COMPUTE
+      - key: WORKER_NODE_ID
+        value: render-compute
+      - key: WORKER_CPU_CORES
+        value: "1"
+      - key: WORKER_MEMORY_MB
+        value: "2048"
+      - key: WORKER_SLOTS
+        value: "1"
+      - key: SPRING_MAIN_WEB_APPLICATION_TYPE
+        value: none
+      - key: DB_HOST
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: perfusionlab-postgres
+          property: password
+      - key: RABBITMQ_HOST
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          property: host
+      - key: RABBITMQ_USER
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_USER
+      - key: RABBITMQ_PASSWORD
+        fromService:
+          name: perfusionlab-rabbitmq
+          type: pserv
+          envVarKey: RABBITMQ_DEFAULT_PASS
+      - key: TRACING_SAMPLING_PROBABILITY
+        value: "0.0"
+
+databases:
+  - name: perfusionlab-postgres
+    databaseName: perfusionlab
+    user: perfusionlab
+    plan: 0.1c-256mb
+    region: virginia
+    ipAllowList: []
