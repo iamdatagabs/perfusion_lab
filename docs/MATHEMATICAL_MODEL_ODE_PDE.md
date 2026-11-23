@@ -77,7 +77,25 @@ A velocidade é interpolada linearmente entre os pontos da trajetória ODE. O so
 
 **Natureza do acoplamento:** unidirecional e exploratório. O fluxo da ODE influencia a advecção da PDE; pressão e concentração não retroagem sobre a ODE. A concentração permanece adimensional e não representa saturação sanguínea ou oxigenação tecidual mensurada.
 
-## 5. Verificação numérica
+
+## 5. Campo transiente axial-transversal 2D
+
+O endpoint experimental `POST /api/v2/simulations/coupled-field-preview` calcula um campo (C(x,z,t)), usando a mesma trajetória ODE de vazão para dirigir a advecção axial. A dimensão (z) representa uma faixa transversal idealizada do domínio, não uma geometria anatômica.
+
+[
+\frac{\partial C}{\partial t}+u(t)\frac{\partial C}{\partial x}
+=D\left(\frac{\partial^2 C}{\partial x^2}+\frac{\partial^2 C}{\partial z^2}\right)-k(C-C_{eq})
+]
+
+- Malha cartesiana uniforme (N_x\times N_z), com (\Delta x=L_x/(N_x-1)) e (\Delta z=L_z/(N_z-1)).
+- Advecção axial upwind; difusão central nas duas direções; integração SSP-RK2.
+- Entrada axial: Dirichlet uniforme em z; saída axial e limites transversais: Neumann de gradiente nulo, com nós fantasmas espelhados.
+- A resposta contém snapshots temporais em formato de pontos ((x,z,C)); a bancada renderiza a superfície e permite selecionar o instante.
+- O passo é limitado por advecção axial, difusão em X/Z e reação. A API impõe limites de passos e atualizações de nós.
+
+O campo 2D substitui a extrusão gráfica anterior: agora há variação transversal calculada pela equação discretizada. Ainda assim, coeficientes e geometria são homogêneos, o inlet é uniforme e o domínio é uma placa idealizada. Não representa CFD 3D, perfusão capilar, anatomia ou oxigenação clínica.
+
+## 6. Verificação numérica
 
 A suíte inclui:
 1. preservação de equilíbrio constante;
@@ -88,12 +106,12 @@ A suíte inclui:
 
 A resposta numérica preserva 12 casas decimais para não mascarar erros pequenos nos testes de convergência. O SSP-RK2 é implementado como combinação convexa de duas etapas de Euler; por isso, mantém o limite de monotonicidade da etapa Euler sob o passo indicado.
 
-## 6. Limitações
+## 7. Limitações
 
 O modelo não representa geometria vascular, distribuição radial, membrana do oxigenador, ligação Hb-O2, curva de dissociação, heterogeneidade tecidual, perfusão capilar ou consumo metabólico medido. Não há validação fisiológica ou clínica. Nenhum indicador deve ser interpretado como estabilidade clínica ou orientação de perfusão.
 
 
-## 6. Fundação inicial de CFD
+## 8. Fundação inicial de CFD
 
 A primeira etapa computacional de CFD foi iniciada em cfd/. O problema reduzido resolve a evolução transiente da velocidade axial em um tubo circular reto, rígido, sob hipóteses de fluido incompressível e newtoniano, escoamento laminar e totalmente desenvolvido. A discretização radial usa volumes finitos em células centradas e integração explícita no tempo.
 
