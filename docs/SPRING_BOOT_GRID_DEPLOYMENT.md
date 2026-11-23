@@ -30,7 +30,7 @@ The backend already supports an externally supplied JDBC URL through `DATABASE_U
 | `DB_PASSWORD` | Password for that role |
 | `DB_POOL_SIZE` | `3` for a small MVP instance; tune only after measuring |
 
-Use the hostname, database name, username and password shown by Neon. If the dashboard gives a URI beginning with `postgresql://`, convert only the scheme to `jdbc:postgresql://` when setting `DATABASE_URL`; retain the host, database, query parameters and SSL requirement. Keep the username and password in their dedicated variables rather than embedding them in the URL.
+Use the hostname, database name, username and password shown by Neon. If Neon provides a URI such as `postgresql://USER:PASSWORD@HOST/DB?sslmode=require`, build `DATABASE_URL` as `jdbc:postgresql://HOST/DB?sslmode=require`: change the scheme to `jdbc:postgresql://` and remove the `USER:PASSWORD@` portion from the authority. Put the username and password only in `DB_USER` and `DB_PASSWORD`. Preserve the hostname (including `-pooler`, if selected), database name and SSL query parameter.
 
 The application runs Flyway migrations at startup. A successful API startup and a healthy `/api/v1/health` response are the first connection checks. Do not point production and development deployments at the same Neon branch unless shared data is intentional.
 
