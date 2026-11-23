@@ -40,6 +40,10 @@
           <include>com/perfusionlab/simulation/api/CoupledSimulationRequest.java</include>
           <include>com/perfusionlab/simulation/api/CoupledSimulationResponse.java</include>
           <include>com/perfusionlab/simulation/domain/CoupledOdePdePerfusionModel.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledFieldController.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledFieldRequest.java</include>
+          <include>com/perfusionlab/simulation/api/CoupledFieldResponse.java</include>
+          <include>com/perfusionlab/simulation/pde/CoupledConcentrationFieldModel.java</include>
         </includes></configuration>
       </plugin>
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
