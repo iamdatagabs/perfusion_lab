@@ -149,7 +149,7 @@ public class CoupledOdePdePerfusionModel {
     }
 
     /** 1 L = 1,000,000 mm^3; convert L/min to mm^3/s and divide by mm^2. */
-    static double flowToVelocity(double flowLMin, double areaMm2) {
+    public static double flowToVelocity(double flowLMin, double areaMm2) {
         return flowLMin * 1_000_000.0 / 60.0 / areaMm2;
     }
 
