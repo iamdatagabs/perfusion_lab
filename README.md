@@ -272,3 +272,6 @@ Compile cada apostila a partir de sua pasta com latexmk -pdf main.tex (ou pdflat
 A nova página conceitual está em mvp.html. Após publicação no GitHub Pages, ela estará disponível em https://iamdatagabs.github.io/perfusion_lab/mvp.html. O console operacional existente permanece em frontend/index.html.
 
 O projeto está em desenvolvimento individual neste estágio. A arquitetura prevê contribuições futuras, mas ainda não há contributor adicional integrado.
+
+
+Contribuições futuras: consulte CONTRIBUTING.md para o fluxo de desenvolvimento, testes e critérios mínimos de documentação científica.
