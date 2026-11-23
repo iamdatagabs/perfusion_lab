@@ -5,6 +5,7 @@ on:
     branches: [main, feat/standalone-ode-preview-api]
     paths:
       - "backend/ode-preview/**"
+      - "backend/src/main/java/com/perfusionlab/simulation/api/CoupledField*.java"
       - "backend/src/main/java/com/perfusionlab/PerfusionLabApplication.java"
       - "backend/src/main/java/com/perfusionlab/platform/api/HealthController.java"
       - "backend/src/main/java/com/perfusionlab/simulation/api/OdeSimulation*.java"
