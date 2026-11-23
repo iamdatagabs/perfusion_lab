@@ -97,14 +97,16 @@ O campo 2D substitui a extrusão gráfica anterior: agora há variação transve
 
 ## 6. Verificação numérica
 
-A suíte inclui:
-1. preservação de equilíbrio constante;
-2. concentração normalizada e condição de saída;
-3. refinamento de malha contra referência mais fina;
-4. **solução manufaturada:** difusão pura com modo (C(x,0)=\sin(\pi x/(2L))), entrada nula e saída de gradiente nulo. A solução analítica é (C(x,t)=\sin(\pi x/(2L))e^{-D(\pi/(2L))^2t}).
-5. estimativa da ordem observada pela redução do erro L2 em malhas sucessivamente refinadas. O passo temporal também é reduzido com dx², portanto o teste mede a convergência conjunta do esquema explícito sob essa política de passo.
+A suíte automatizada do campo 2D cobre atualmente:
 
-A resposta numérica preserva 12 casas decimais para não mascarar erros pequenos nos testes de convergência. O SSP-RK2 é implementado como combinação convexa de duas etapas de Euler; por isso, mantém o limite de monotonicidade da etapa Euler sob o passo indicado.
+1. dimensões da malha, quantidade de snapshots, instante final e concentração normalizada;
+2. invariância de um campo constante quando concentração inicial, entrada e equilíbrio reacional coincidem;
+3. ausência de gradiente transversal espúrio quando condições iniciais e de contorno são uniformes em z.
+
+Esses testes verificam invariantes básicos do solver e a consistência da implementação das fronteiras transversais. **Ainda não constituem uma análise de convergência nem uma validação quantitativa de ordem de precisão.**
+
+Próxima etapa de verificação: adicionar um caso de solução manufaturada com advecção nula e difusão pura, comparar a solução numérica com o modo analítico compatível com as condições de contorno e medir o erro L2 em malhas refinadas. Para isso, o modelo deverá permitir prescrever um perfil inicial 2D ou um modo separável sem alterar as condições físicas do caso. A ordem observada deverá ser reportada separadamente para refinamento espacial e temporal, pois o passo explícito atual depende da resolução da malha.
+
 
 ## 7. Limitações
 
