@@ -283,4 +283,4 @@ Contribuições futuras: consulte CONTRIBUTING.md para o fluxo de desenvolviment
 
 ## 3D specimen prototype
 
-The public frontend includes a first parametric 3D specimen at `frontend/specimen.html`: an abstract right circular cylinder (default Ø 70 × 90 mm) with adjustable radius/length, live geometric measurements, orbit controls and STL/OBJ exports. The cylinder is a geometric test body only; it does not represent heart anatomy or validated tissue mechanics. The downloadable STL and OBJ assets are stored in `frontend/assets/`.
+The public frontend includes a first parametric 3D specimen at `frontend/specimen.html`: an abstract right circular cylinder (default Ø 70 × 90 mm) with adjustable radius/length, live geometric measurements, orbit controls and STL/OBJ exports of the current dimensions. The repository also includes default Ø 70 × 90 mm STL/OBJ assets. The cylinder is a geometric test body only; it does not represent heart anatomy or validated tissue mechanics. The downloadable STL and OBJ assets are stored in `frontend/assets/`.
