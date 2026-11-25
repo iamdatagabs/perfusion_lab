@@ -6,7 +6,7 @@ PerfusionLab is an academic software engineering project exploring computational
 
 > **Educational/research prototype only.** It is not a medical device, clinical decision-support system, or substitute for perfusionist/clinical judgment. Its equations and generated values are simplified demonstrations and must not be used to guide patient care.
 
-## Current capabilities
+**Live workbench:** [Open PerfusionLab](https://iamdatagabs.github.io/perfusion_lab/frontend/workbench.html) · **MVP:** [Open research MVP](https://iamdatagabs.github.io/perfusion_lab/mvp.html) · **Portfolio:** [Gabriel Passos](https://iamdatagabs.github.io/iamdatagabs/portfolio/)\n\n## Current capabilities
 
 - Responsive Portuguese MVP web console with dashboard, simulation form, recent job history and worker-cluster inventory.
 - Standalone GitHub Pages frontend and same-origin frontend bundled into the Spring Boot Docker image.
